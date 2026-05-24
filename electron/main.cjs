@@ -1,6 +1,7 @@
-const { app, BrowserWindow, ipcMain, dialog, net, protocol } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const http = require('http');
 
 const isDev = !app.isPackaged;
 
@@ -8,37 +9,6 @@ let mainWindow = null;
 let db = null;
 
 app.whenReady().then(async () => {
-  protocol.handle('app', (request) => {
-    const url = new URL(request.url);
-    const relativePath = url.pathname.startsWith('/') ? url.pathname.slice(1) : url.pathname;
-    const fullPath = path.join(app.getAppPath(), relativePath);
-    try {
-      const data = fs.readFileSync(fullPath);
-      const ext = path.extname(fullPath).toLowerCase();
-      const mimeTypes = {
-        '.html': 'text/html',
-        '.js': 'application/javascript',
-        '.mjs': 'application/javascript',
-        '.css': 'text/css',
-        '.json': 'application/json',
-        '.png': 'image/png',
-        '.jpg': 'image/jpeg',
-        '.jpeg': 'image/jpeg',
-        '.svg': 'image/svg+xml',
-        '.ico': 'image/x-icon',
-      };
-      return new Response(data, {
-        status: 200,
-        headers: {
-          'content-type': mimeTypes[ext] || 'application/octet-stream',
-          'access-control-allow-origin': '*',
-        },
-      });
-    } catch {
-      return new Response('Not found', { status: 404 });
-    }
-  });
-
   const { default: initSqlJs } = require('sql.js');
   const dbPath = path.join(app.getPath('userData'), 'edh-deckbuilder.db');
 
@@ -62,7 +32,54 @@ app.whenReady().then(async () => {
   }
 });
 
+let server = null;
+
+function getMime(ext) {
+  const types = {
+    '.html': 'text/html',
+    '.js': 'application/javascript',
+    '.mjs': 'application/javascript',
+    '.css': 'text/css',
+    '.json': 'application/json',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.svg': 'image/svg+xml',
+    '.ico': 'image/x-icon',
+    '.wasm': 'application/wasm',
+  };
+  return types[ext] || 'application/octet-stream';
+}
+
 function createWindow() {
+  if (!isDev) {
+    const distDir = path.join(app.getAppPath(), 'dist');
+    server = http.createServer((req, res) => {
+      const filePath = path.join(distDir, req.url === '/' ? 'index.html' : req.url.replace(/\?.*/, ''));
+      try {
+        const data = fs.readFileSync(filePath);
+        res.writeHead(200, {
+          'Content-Type': getMime(path.extname(filePath)),
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': 'no-cache',
+        });
+        res.end(data);
+      } catch {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('Not found');
+      }
+    });
+    server.listen(0, '127.0.0.1', () => {
+      const addr = server.address();
+      const port = typeof addr === 'object' && addr ? addr.port : 3456;
+      openWindow(port);
+    });
+  } else {
+    openWindow(5173);
+  }
+}
+
+function openWindow(port) {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -84,7 +101,7 @@ function createWindow() {
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
   } else {
-    mainWindow.loadURL('app:///dist/index.html');
+    mainWindow.loadURL(`http://127.0.0.1:${port}/`);
   }
 }
 
@@ -95,6 +112,9 @@ app.on('window-all-closed', () => {
     const dbPath = path.join(app.getPath('userData'), 'edh-deckbuilder.db');
     fs.writeFileSync(dbPath, buffer);
     db.close();
+  }
+  if (server) {
+    server.close();
   }
   app.quit();
 });
