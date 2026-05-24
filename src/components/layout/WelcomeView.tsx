@@ -65,9 +65,13 @@ export default function WelcomeView() {
         return;
       }
       setStatus(`Parsed ${rows.length} rows. Fetching card data...`);
+      console.log('[Import] electronAPI exists:', !!window.electronAPI, 'isElectron:', window.electronAPI?.isElectron);
+      console.log('[Import] rows:', rows.length, 'first scryfallId:', rows[0]?.scryfallId);
       await clearCollection();
       const result: CollectionEntry[] = [];
       const total = rows.length;
+      let fetchFailed = 0;
+      let fetchOK = 0;
 
       for (let i = 0; i < total; i++) {
         if (controller.signal.aborted) break;
@@ -81,7 +85,13 @@ export default function WelcomeView() {
         if (!cardData) cardData = await getCachedCard(scryfallId);
         if (!cardData) {
           cardData = await fetchCardById(scryfallId);
-          if (cardData) await cacheCard(cardData);
+          if (cardData) {
+            await cacheCard(cardData);
+            fetchOK++;
+          } else {
+            fetchFailed++;
+            if (fetchFailed <= 3) console.warn('[Import] fetchCardById returned null for:', row.name, scryfallId);
+          }
         }
         if (cardData) {
           setInMemoryCache(scryfallId, cardData);
@@ -102,6 +112,8 @@ export default function WelcomeView() {
           result.push({ csvRow: csvRowObj, scryfallData: cardData, scores: scoreCard(cardData, csvRowObj, null) });
         }
       }
+
+      console.log(`[Import] Done. OK: ${fetchOK}, Failed: ${fetchFailed}, Result: ${result.length}`);
 
       if (controller.signal.aborted) return;
       await dbSave();

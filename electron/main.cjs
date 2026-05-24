@@ -98,6 +98,8 @@ function openWindow(port) {
     console.error(`Failed to load ${url}: ${errorCode} - ${errorDesc}`);
   });
 
+  mainWindow.webContents.openDevTools();
+
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
   } else {
