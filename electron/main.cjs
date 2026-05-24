@@ -84,7 +84,7 @@ function createWindow() {
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
   } else {
-    mainWindow.loadURL('app://dist/index.html');
+    mainWindow.loadURL('app:///dist/index.html');
   }
 }
 
