@@ -58,15 +58,15 @@ export default function CardPool() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="px-3 py-2 border-b border-white/[0.04] space-y-2">
+      <div className="px-3 py-2 border-b border-border/50 space-y-2">
         <div className="relative">
-          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#6a6a88]" />
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted" />
           <input
             type="text"
             placeholder="Search collection..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-white/[0.03] border border-[#333344] rounded-lg text-[#e8e8f0] pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-[#c9a84c] placeholder:text-[#6a6a88]"
+            className="w-full bg-black/[0.03] border border-border rounded-lg text-text pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-primary placeholder:text-text-muted"
           />
         </div>
 
@@ -74,7 +74,7 @@ export default function CardPool() {
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
-            className="flex-1 bg-white/[0.03] border border-[#333344] rounded-md text-[#a0a0b8] px-1.5 py-1 text-[10px] focus:outline-none focus:border-[#c9a84c]"
+            className="flex-1 bg-black/[0.03] border border-border rounded-md text-text-secondary px-1.5 py-1 text-[10px] focus:outline-none focus:border-primary"
           >
             <option value="">All Types</option>
             <option value="Creature">Creature</option>
@@ -89,7 +89,7 @@ export default function CardPool() {
           <select
             value={filterColor}
             onChange={(e) => setFilterColor(e.target.value)}
-            className="flex-1 bg-white/[0.03] border border-[#333344] rounded-md text-[#a0a0b8] px-1.5 py-1 text-[10px] focus:outline-none focus:border-[#c9a84c]"
+            className="flex-1 bg-black/[0.03] border border-border rounded-md text-text-secondary px-1.5 py-1 text-[10px] focus:outline-none focus:border-primary"
           >
             <option value="">All Colors</option>
             <option value="W">W</option>
@@ -104,7 +104,7 @@ export default function CardPool() {
           <select
             value={filterScore}
             onChange={(e) => setFilterScore(e.target.value)}
-            className="flex-1 bg-white/[0.03] border border-[#333344] rounded-md text-[#a0a0b8] px-1.5 py-1 text-[10px] focus:outline-none focus:border-[#c9a84c]"
+            className="flex-1 bg-black/[0.03] border border-border rounded-md text-text-secondary px-1.5 py-1 text-[10px] focus:outline-none focus:border-primary"
           >
             <option value="">All Scores</option>
             <option value="80">80+</option>
@@ -117,7 +117,7 @@ export default function CardPool() {
       <div className="flex-1 overflow-y-auto p-2 space-y-1">
         {!poolCards.length && (
           <div className="flex flex-col items-center justify-center py-12 text-center">
-            <p className="text-xs text-[#6a6a88]">
+            <p className="text-xs text-text-muted">
               {collection.length
                 ? (search || filterType || filterColor || filterScore)
                   ? 'No cards match your filters.'
@@ -136,12 +136,12 @@ export default function CardPool() {
         ))}
       </div>
 
-      <div className="px-3 py-2 border-t border-white/[0.04] text-[10px] text-[#6a6a88] flex justify-between">
+      <div className="px-3 py-2 border-t border-border/50 text-[10px] text-text-muted flex justify-between">
         <span>{poolCards.length} available</span>
         {(search || filterType || filterColor || filterScore) && (
           <button
             onClick={() => { setSearch(''); setFilterType(''); setFilterColor(''); setFilterScore(''); }}
-            className="text-[#c9a84c] hover:text-[#e8c86a] transition-colors"
+            className="text-primary hover:text-primary-light transition-colors"
           >
             Reset filters
           </button>

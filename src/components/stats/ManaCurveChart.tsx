@@ -35,39 +35,40 @@ export default function ManaCurveChart({ curveData }: { curveData: CurveData[] }
   }));
 
   return (
-    <div className="rounded-2xl border border-white/5 bg-gradient-to-b from-[#1f1f28]/90 to-[#14141c]/90 p-5 shadow-[0_18px_36px_rgba(0,0,0,0.28)]">
-      <h3 className="text-xs font-semibold uppercase tracking-[0.06em] text-[#a0a0b8] mb-4">
+    <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+      <h3 className="text-xs font-semibold uppercase tracking-[0.06em] text-text-secondary mb-4">
         Mana Curve
       </h3>
       <ResponsiveContainer width="100%" height={240}>
         <BarChart data={data} margin={{ top: 4, right: 0, bottom: 0, left: -20 }}>
           <XAxis
             dataKey="cmc"
-            tick={{ fill: '#6a6a88', fontSize: 11 }}
-            axisLine={{ stroke: '#333344' }}
+            tick={{ fill: '#9a9080', fontSize: 11 }}
+            axisLine={{ stroke: '#e2dbd0' }}
             tickLine={false}
           />
           <YAxis
-            tick={{ fill: '#6a6a88', fontSize: 10 }}
+            tick={{ fill: '#9a9080', fontSize: 10 }}
             axisLine={false}
             tickLine={false}
           />
           <Tooltip
             contentStyle={{
-              background: '#1e1e24',
-              border: '1px solid #333344',
+              background: '#ffffff',
+              border: '1px solid #e2dbd0',
               borderRadius: '10px',
-              color: '#e8e8f0',
+              color: '#2c2416',
               fontSize: '12px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
             }}
-            itemStyle={{ color: '#e8e8f0' }}
-            labelStyle={{ color: '#a0a0b8', marginBottom: '4px' }}
+            itemStyle={{ color: '#2c2416' }}
+            labelStyle={{ color: '#6b6358', marginBottom: '4px' }}
           />
           <Bar dataKey="count" radius={[4, 4, 0, 0]} maxBarSize={36}>
             {data.map((entry, index) => (
               <Cell
                 key={index}
-                fill={entry.isOptimal ? '#52c272' : '#c9a84c'}
+                fill={entry.isOptimal ? '#4a7a3c' : '#a67c38'}
                 fillOpacity={entry.isOptimal ? 0.9 : 0.6}
               />
             ))}
@@ -76,10 +77,10 @@ export default function ManaCurveChart({ curveData }: { curveData: CurveData[] }
       </ResponsiveContainer>
       <div className="flex justify-center gap-4 mt-3 text-[10px]">
         <span className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-sm bg-[#52c272]/60" /> Optimal
+          <span className="w-3 h-3 rounded-sm bg-success/60" /> Optimal
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-sm bg-[#c9a84c]/60" /> Deviating
+          <span className="w-3 h-3 rounded-sm bg-primary/60" /> Deviating
         </span>
       </div>
     </div>

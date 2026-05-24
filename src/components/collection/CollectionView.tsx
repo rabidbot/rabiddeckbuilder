@@ -111,9 +111,9 @@ export default function CollectionView() {
   };
 
   const getScoreClass = (v: number) => {
-    if (v >= 7) return 'bg-[#52c272]/15 text-[#52c272]';
-    if (v >= 4) return 'bg-[#c9a84c]/15 text-[#c9a84c]';
-    return 'bg-[#e05252]/15 text-[#e05252]';
+    if (v >= 7) return 'bg-success/15 text-success';
+    if (v >= 4) return 'bg-primary/15 text-primary';
+    return 'bg-danger/15 text-danger';
   };
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -127,9 +127,9 @@ export default function CollectionView() {
   if (!collection.length) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] text-center">
-        <Library size={64} className="text-[#a0a0b8]/30 mb-4" />
-        <h2 className="text-xl font-semibold text-[#e8e8f0] mb-2">No Collection Loaded</h2>
-        <p className="text-[#a0a0b8] text-sm max-w-md">
+        <Library size={64} className="text-text-secondary/30 mb-4" />
+        <h2 className="text-xl font-semibold text-text mb-2">No Collection Loaded</h2>
+        <p className="text-text-secondary text-sm max-w-md">
           Go to the Import tab, upload a ManaBox CSV, and your collection will appear here
           with search, filters, and scoring for deck building.
         </p>
@@ -152,14 +152,14 @@ export default function CollectionView() {
             placeholder="Search cards..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-white/[0.03] border border-[#333344] rounded-lg text-[#e8e8f0] px-3 py-2 text-sm focus:outline-none focus:border-[#c9a84c] placeholder:text-[#6a6a88]"
+            className="w-full bg-black/[0.03] border border-border rounded-lg text-text px-3 py-2 text-sm focus:outline-none focus:border-[#c9a84c] placeholder:text-text-muted"
           />
         </div>
 
         <select
           value={filterColor}
           onChange={(e) => setFilterColor(e.target.value)}
-          className="bg-white/[0.03] border border-[#333344] rounded-lg text-[#a0a0b8] px-3 py-2 text-sm focus:outline-none focus:border-[#c9a84c]"
+          className="bg-black/[0.03] border border-border rounded-lg text-text-secondary px-3 py-2 text-sm focus:outline-none focus:border-[#c9a84c]"
         >
           <option value="">All Colors</option>
           <option value="W">White</option>
@@ -174,7 +174,7 @@ export default function CollectionView() {
         <select
           value={filterType}
           onChange={(e) => setFilterType(e.target.value)}
-          className="bg-white/[0.03] border border-[#333344] rounded-lg text-[#a0a0b8] px-3 py-2 text-sm focus:outline-none focus:border-[#c9a84c]"
+          className="bg-black/[0.03] border border-border rounded-lg text-text-secondary px-3 py-2 text-sm focus:outline-none focus:border-[#c9a84c]"
         >
           <option value="">All Types</option>
           <option value="Creature">Creature</option>
@@ -192,51 +192,51 @@ export default function CollectionView() {
             setFilterColor('');
             setFilterType('');
           }}
-          className="text-xs text-[#6a6a88] hover:text-[#e8e8f0] transition-colors px-3 py-2"
+          className="text-xs text-text-muted hover:text-text transition-colors px-3 py-2"
         >
           Reset
         </button>
       </div>
 
-      <div className="text-xs text-[#6a6a88]">
+      <div className="text-xs text-text-muted">
         Showing {filtered.length} of {collection.length} cards
       </div>
 
-      <div ref={scrollRef} className="rounded-2xl border border-[#333344] bg-gradient-to-b from-[#1f1f28]/90 to-[#14141c]/90 overflow-auto max-h-[calc(100vh-320px)] shadow-[0_18px_36px_rgba(0,0,0,0.28)]">
+      <div ref={scrollRef} className="rounded-2xl border border-border bg-card shadow-sm overflow-auto max-h-[calc(100vh-320px)] shadow-[0_18px_36px_rgba(0,0,0,0.28)]">
         <table className="w-full text-sm min-w-[800px]">
           <thead className="sticky top-0 z-10">
-            <tr className="bg-[#25252d]">
+            <tr className="bg-card-elevated">
               <th
-                className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-[#a0a0b8] cursor-pointer hover:text-[#c9a84c] transition-colors select-none"
+                className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-text-secondary cursor-pointer hover:text-primary transition-colors select-none"
                 onClick={() => handleSort('name')}
               >
                 Name{getSortIndicator('name')}
               </th>
               <th
-                className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-[#a0a0b8] cursor-pointer hover:text-[#c9a84c] transition-colors select-none"
+                className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-text-secondary cursor-pointer hover:text-primary transition-colors select-none"
                 onClick={() => handleSort('cmc')}
               >
                 CMC{getSortIndicator('cmc')}
               </th>
-              <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-[#a0a0b8]">
+              <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-text-secondary">
                 Type
               </th>
-              <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-[#a0a0b8]">
+              <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-text-secondary">
                 Colors
               </th>
               <th
-                className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-[#a0a0b8] cursor-pointer hover:text-[#c9a84c] transition-colors select-none"
+                className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-text-secondary cursor-pointer hover:text-primary transition-colors select-none"
                 onClick={() => handleSort('composite')}
               >
                 Score{getSortIndicator('composite')}
               </th>
-              <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-[#a0a0b8]">
+              <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-text-secondary">
                 Price
               </th>
-              <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-[#a0a0b8]">
+              <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-text-secondary">
                 Qty
               </th>
-              <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-[#a0a0b8]">
+              <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-text-secondary">
                 Status
               </th>
             </tr>
@@ -266,20 +266,20 @@ export default function CollectionView() {
                           }}
                         >
                           <div
-                            className={`flex border-b border-white/[0.02] cursor-pointer transition-colors ${
-                              isSelected ? 'bg-[#c9a84c]/10' : 'hover:bg-white/[0.03]'
+                            className={`flex border-b border-border/30 cursor-pointer transition-colors ${
+                              isSelected ? 'bg-primary/10' : 'hover:bg-black/[0.03]'
                             }`}
                             onClick={() => setSelectedId(isSelected ? null : card.id)}
                           >
                             <div style={{ width: '35%' }} className="px-3 py-2">
                               <div className="flex items-center gap-2">
-                                <span className={`font-medium text-[13px] truncate ${isLegend ? 'text-[#e8c86a]' : 'text-[#e8e8f0]'}`}>
+                                <span className={`font-medium text-[13px] truncate ${isLegend ? 'text-primary' : 'text-text'}`}>
                                   {card.name}
                                 </span>
                               </div>
                             </div>
-                            <div style={{ width: '6%' }} className="px-3 py-2 text-[#a0a0b8] text-xs">{card.cmc || 0}</div>
-                            <div style={{ width: '16%' }} className="px-3 py-2 text-[#a0a0b8] text-xs truncate">{typeShort}</div>
+                            <div style={{ width: '6%' }} className="px-3 py-2 text-text-secondary text-xs">{card.cmc || 0}</div>
+                            <div style={{ width: '16%' }} className="px-3 py-2 text-text-secondary text-xs truncate">{typeShort}</div>
                             <div style={{ width: '10%' }} className="px-3 py-2">
                               <div className="flex gap-1">
                                 {ci.length === 0 && (
@@ -298,15 +298,15 @@ export default function CollectionView() {
                                 {s.composite || 0}
                               </span>
                             </div>
-                            <div style={{ width: '8%' }} className="px-3 py-2 text-[#a0a0b8] text-xs">
+                            <div style={{ width: '8%' }} className="px-3 py-2 text-text-secondary text-xs">
                               {price > 0 ? `$${price.toFixed(2)}` : '\u2014'}
                             </div>
-                            <div style={{ width: '6%' }} className="px-3 py-2 text-[#a0a0b8] text-xs">
+                            <div style={{ width: '6%' }} className="px-3 py-2 text-text-secondary text-xs">
                               {parseInt(entry.csvRow.quantity || '1', 10)}
                             </div>
                             <div style={{ width: '10%' }} className="px-3 py-2">
                               {commanderCI && !s.valid && (
-                                <span className="text-[10px] text-[#e05252] bg-[#e05252]/10 px-2 py-0.5 rounded-full">
+                                <span className="text-[10px] text-danger bg-[#e05252]/10 px-2 py-0.5 rounded-full">
                                   Invalid
                                 </span>
                               )}
@@ -358,12 +358,12 @@ function CardDetailPanel({
   ];
 
   return (
-    <div className="fixed right-0 top-0 bottom-0 w-[380px] bg-[#131318]/98 border-l border-[#333344] z-50 flex flex-col shadow-[-8px_0_40px_rgba(0,0,0,0.6)] overflow-y-auto">
-      <div className="sticky top-0 flex items-center justify-between px-4 py-3 bg-[#25252d] border-b border-[#333344] z-10">
-        <h3 className="text-sm font-semibold text-[#c9a84c] truncate pr-2">{card.name}</h3>
+    <div className="fixed right-0 top-0 bottom-0 w-[380px] bg-card border-l border-border z-50 flex flex-col shadow-[-8px_0_40px_rgba(0,0,0,0.6)] overflow-y-auto">
+      <div className="sticky top-0 flex items-center justify-between px-4 py-3 bg-card-elevated border-b border-border z-10">
+        <h3 className="text-sm font-semibold text-primary truncate pr-2">{card.name}</h3>
         <button
           onClick={onClose}
-          className="w-7 h-7 rounded-lg bg-[#2d2d38] flex items-center justify-center text-[#a0a0b8] hover:bg-[#e05252] hover:text-white transition-colors shrink-0"
+          className="w-7 h-7 rounded-lg bg-hover flex items-center justify-center text-text-secondary hover:bg-danger hover:text-white transition-colors shrink-0"
         >
           &#10005;
         </button>
@@ -381,52 +381,52 @@ function CardDetailPanel({
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
             />
           ) : (
-            <div className="w-[200px] h-[280px] rounded-xl bg-[#1e1e24] border border-[#333344] flex items-center justify-center text-[#6a6a88] text-xs">
+            <div className="w-[200px] h-[280px] rounded-xl bg-card border border-border flex items-center justify-center text-text-muted text-xs">
               No Image
             </div>
           )}
         </div>
 
         {/* Name and type */}
-        <p className="text-xs text-[#6a6a88] mb-1">{card.type_line}</p>
+        <p className="text-xs text-text-muted mb-1">{card.type_line}</p>
         <div className="flex items-center gap-3 mb-4">
-          <span className="text-xs text-[#a0a0b8]">
+          <span className="text-xs text-text-secondary">
             CMC {card.cmc || 0}
-            {card.mana_cost && <span className="text-[#6a6a88] font-mono ml-2">{card.mana_cost.replace(/[{}]/g, '')}</span>}
+            {card.mana_cost && <span className="text-text-muted font-mono ml-2">{card.mana_cost.replace(/[{}]/g, '')}</span>}
           </span>
         </div>
 
         {/* Composite Score */}
-        <div className="rounded-xl bg-[#1e1e24] border border-white/[0.04] p-4 text-center mb-4">
+        <div className="rounded-xl bg-card border border-border/50 p-4 text-center mb-4">
           <div
             className={`text-3xl font-black ${
-              s.composite >= 70 ? 'text-[#52c272]' : s.composite >= 45 ? 'text-[#c9a84c]' : 'text-[#e05252]'
+              s.composite >= 70 ? 'text-success' : s.composite >= 45 ? 'text-primary' : 'text-danger'
             }`}
           >
             {s.composite}
           </div>
-          <div className="text-[10px] text-[#6a6a88] uppercase tracking-[0.06em] mt-1">Composite Score / 100</div>
+          <div className="text-[10px] text-text-muted uppercase tracking-[0.06em] mt-1">Composite Score / 100</div>
         </div>
 
         {/* Score Breakdown */}
         <div className="space-y-2.5 mb-4">
           {scoreItems.map((item) => (
-            <div key={item.key} className="rounded-lg bg-[#1e1e24] border border-white/[0.03] p-3">
+            <div key={item.key} className="rounded-lg bg-card border border-border/30 p-3">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-[#a0a0b8]">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.04em] text-text-secondary">
                   {item.label}
                 </span>
                 <span className="text-sm font-bold" style={{ color: item.color }}>
                   {item.val}/10
                 </span>
               </div>
-              <div className="h-1.5 rounded-full bg-white/[0.04] overflow-hidden mb-2">
+              <div className="h-1.5 rounded-full bg-black/[0.04] overflow-hidden mb-2">
                 <div
                   className="h-full rounded-full transition-all"
                   style={{ width: `${item.val * 10}%`, background: item.color }}
                 />
               </div>
-              <p className="text-[10px] text-[#6a6a88] leading-relaxed">
+              <p className="text-[10px] text-text-muted leading-relaxed">
                 {(item.key === 'budget'
                   ? [...item.reasons, 'Budget score shown for reference — does not affect deck selection']
                   : item.reasons.length ? item.reasons : ['No data']
@@ -438,21 +438,21 @@ function CardDetailPanel({
 
         {/* Oracle text */}
         {card.oracle_text && (
-          <div className="rounded-lg bg-[#1e1e24] border border-white/[0.03] p-3 mb-4">
-            <p className="text-xs text-[#a0a0b8] leading-relaxed italic whitespace-pre-wrap">
+          <div className="rounded-lg bg-card border border-border/30 p-3 mb-4">
+            <p className="text-xs text-text-secondary leading-relaxed italic whitespace-pre-wrap">
               {card.oracle_text}
             </p>
           </div>
         )}
 
         {/* Meta */}
-        <div className="flex flex-col gap-1 text-[10px] text-[#6a6a88] mb-4">
-          <span><strong className="text-[#a0a0b8]">Set:</strong> {card.set_name} ({card.collector_number})</span>
-          <span><strong className="text-[#a0a0b8]">Rarity:</strong> {card.rarity}</span>
-          <span><strong className="text-[#a0a0b8]">Price:</strong> {price > 0 ? `$${price.toFixed(2)}` : '\u2014'}</span>
-          <span><strong className="text-[#a0a0b8]">Quantity:</strong> {entry.csvRow.quantity || '1'}</span>
-          {inDeck && <span className="text-[#52c272]">&#10003; In your deck</span>}
-          {!s.valid && commander && <span className="text-[#e05252]">&#10005; Invalid for this commander</span>}
+        <div className="flex flex-col gap-1 text-[10px] text-text-muted mb-4">
+          <span><strong className="text-text-secondary">Set:</strong> {card.set_name} ({card.collector_number})</span>
+          <span><strong className="text-text-secondary">Rarity:</strong> {card.rarity}</span>
+          <span><strong className="text-text-secondary">Price:</strong> {price > 0 ? `$${price.toFixed(2)}` : '\u2014'}</span>
+          <span><strong className="text-text-secondary">Quantity:</strong> {entry.csvRow.quantity || '1'}</span>
+          {inDeck && <span className="text-success">&#10003; In your deck</span>}
+          {!s.valid && commander && <span className="text-danger">&#10005; Invalid for this commander</span>}
         </div>
 
         {/* Action buttons */}
@@ -460,7 +460,7 @@ function CardDetailPanel({
           {inDeck ? (
             <button
               onClick={() => { removeCard(card.id); addToast(`Removed ${card.name}`, 'info'); }}
-              className="flex-1 px-3 py-2 rounded-lg bg-[#e05252]/10 border border-[#e05252]/20 text-[#e05252] text-xs font-medium hover:bg-[#e05252]/20 transition-colors"
+              className="flex-1 px-3 py-2 rounded-lg bg-danger/10 border border-danger/20 text-danger text-xs font-medium hover:bg-danger/20 transition-colors"
             >
               Remove from Deck
             </button>
@@ -468,7 +468,7 @@ function CardDetailPanel({
             <button
               onClick={() => { addCard(card.id, { role: 'Manual', reason: 'Added from collection' }); addToast(`Added ${card.name}`, 'success'); }}
               disabled={!s.valid || cardIds.length >= 99}
-              className="flex-1 px-3 py-2 rounded-lg bg-[#52c272]/10 border border-[#52c272]/20 text-[#52c272] text-xs font-medium hover:bg-[#52c272]/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              className="flex-1 px-3 py-2 rounded-lg bg-success/10 border border-success/20 text-success text-xs font-medium hover:bg-[#52c272]/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
               Add to Deck
             </button>

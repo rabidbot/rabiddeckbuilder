@@ -90,19 +90,16 @@ export default function DeckWorkspace() {
       const isFromDeck = cardIds.includes(activeId);
       const targetCategory = overData?.category;
 
-      // Pool → Deck category: add card
       if (isFromPool && targetCategory) {
         addCard(activeId, { role: targetCategory, reason: `Dragged to ${targetCategory}` });
         return;
       }
 
-      // Deck → Pool zone: remove card
       if (isFromDeck && overId === 'pool-zone') {
         removeCard(activeId);
         return;
       }
 
-      // Deck → Deck (different category): store manual category override
       if (isFromDeck && targetCategory && overId.startsWith('category-')) {
         setCategoryOverride(activeId, targetCategory);
         return;
@@ -117,10 +114,10 @@ export default function DeckWorkspace() {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-3 lg:h-[calc(100vh-260px)]">
-        <div className="rounded-2xl border border-white/5 bg-gradient-to-b from-[#1f1f28]/90 to-[#14141c]/90 overflow-hidden flex flex-col shadow-[0_18px_36px_rgba(0,0,0,0.28)] max-h-[50vh] lg:max-h-none">
-          <div className="px-3 py-2.5 border-b border-white/[0.04]">
-            <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-[#6a6a88]">
+      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-3 lg:h-[calc(100vh-230px)]">
+        <div className="rounded-2xl border border-border bg-card overflow-hidden flex flex-col shadow-sm max-h-[50vh] lg:max-h-none">
+          <div className="px-3 py-2.5 border-b border-border/50">
+            <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-text-muted">
               Collection ({collection.length})
             </span>
           </div>
@@ -129,11 +126,11 @@ export default function DeckWorkspace() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/5 bg-gradient-to-b from-[#1f1f28]/90 to-[#14141c]/90 overflow-hidden flex flex-col shadow-[0_18px_36px_rgba(0,0,0,0.28)] min-h-0">
-          <div className="sticky top-0 flex items-center justify-between px-4 py-3 bg-[#25252d] border-b border-white/[0.04] z-10">
-            <h3 className="text-sm font-semibold text-[#e8e8f0]">Deck List</h3>
-            <span className="text-sm text-[#a0a0b8]">
-              <strong className="text-[#c9a84c]">{deckEntries.length}</strong>/99
+        <div className="rounded-2xl border border-border bg-card overflow-hidden flex flex-col shadow-sm min-h-0">
+          <div className="sticky top-0 flex items-center justify-between px-4 py-3 bg-card-elevated border-b border-border/50 z-10">
+            <h3 className="text-sm font-semibold text-text">Deck List</h3>
+            <span className="text-sm text-text-secondary">
+              <strong className="text-primary">{deckEntries.length}</strong>/99
             </span>
           </div>
           <div className="flex-1 overflow-y-auto">
@@ -161,19 +158,19 @@ export default function DeckWorkspace() {
 
       <DragOverlay dropAnimation={null}>
         {activeCard ? (
-          <div className="rounded-xl border border-[#c9a84c]/40 bg-[#1e1e24] px-4 py-2.5 shadow-2xl">
+          <div className="rounded-xl border border-primary/40 bg-card px-4 py-2.5 shadow-lg">
             <div className="flex items-center gap-3">
-              <span className="text-sm text-[#e8e8f0] font-medium">{activeCard.scryfallData.name}</span>
-              <span className="text-xs text-[#6a6a88] font-mono">
+              <span className="text-sm text-text font-medium">{activeCard.scryfallData.name}</span>
+              <span className="text-xs text-text-muted font-mono">
                 CMC {activeCard.scryfallData.cmc || 0}
               </span>
               <span
                 className={`text-xs font-bold ${
                   activeCard.scores.composite >= 70
-                    ? 'text-[#52c272]'
+                    ? 'text-success'
                     : activeCard.scores.composite >= 45
-                      ? 'text-[#c9a84c]'
-                      : 'text-[#e05252]'
+                      ? 'text-primary'
+                      : 'text-danger'
                 }`}
               >
                 {activeCard.scores.composite}

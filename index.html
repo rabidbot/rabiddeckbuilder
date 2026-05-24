@@ -5,8 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>EDH Deck Builder</title>
   </head>
-  <body class="bg-[#0d0d0f] text-[#e8e8f0] antialiased">
-    <div id="root"></div>
+  <body class="bg-surface text-text antialiased">
+    <noscript>
+      <div style="padding:2rem;font-family:system-ui;text-align:center;">
+        <h1>JavaScript Required</h1>
+        <p>EDH Deck Builder needs JavaScript to run. Please enable it in your settings.</p>
+      </div>
+    </noscript>
+    <div id="root">
+      <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:system-ui;color:#9a9080;">
+        Loading EDH Deck Builder...
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

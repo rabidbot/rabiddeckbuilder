@@ -1,13 +1,13 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 
 const MANA_COLORS: Record<string, string> = {
-  W: '#f9f6ee',
-  U: '#4a90d9',
-  B: '#8b52a0',
-  R: '#d94a4a',
-  G: '#2d8b4a',
-  C: '#b0a890',
-  Multi: '#c9a84c',
+  W: '#f9f3e4',
+  U: '#5a9ad4',
+  B: '#8b6a9c',
+  R: '#d45a4a',
+  G: '#3d8b4a',
+  C: '#b0a48a',
+  Multi: '#a67c38',
 };
 
 interface ColorData {
@@ -20,8 +20,8 @@ export default function ColorPieChart({ data }: { data: ColorData[] }) {
   const total = data.reduce((s, d) => s + d.value, 0) || 1;
 
   return (
-    <div className="rounded-2xl border border-white/5 bg-gradient-to-b from-[#1f1f28]/90 to-[#14141c]/90 p-5 shadow-[0_18px_36px_rgba(0,0,0,0.28)]">
-      <h3 className="text-xs font-semibold uppercase tracking-[0.06em] text-[#a0a0b8] mb-1">
+    <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
+      <h3 className="text-xs font-semibold uppercase tracking-[0.06em] text-text-secondary mb-1">
         Color Distribution
       </h3>
       <ResponsiveContainer width="100%" height={220}>
@@ -36,16 +36,17 @@ export default function ColorPieChart({ data }: { data: ColorData[] }) {
             dataKey="value"
           >
             {data.map((entry, index) => (
-              <Cell key={index} fill={entry.color} stroke="#0d0d0f" strokeWidth={1} />
+              <Cell key={index} fill={entry.color} stroke="#faf7f2" strokeWidth={1} />
             ))}
           </Pie>
           <Tooltip
             contentStyle={{
-              background: '#1e1e24',
-              border: '1px solid #333344',
+              background: '#ffffff',
+              border: '1px solid #e2dbd0',
               borderRadius: '10px',
-              color: '#e8e8f0',
+              color: '#2c2416',
               fontSize: '12px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
             }}
             formatter={(_value: unknown) => {
               const v = Number(_value) || 0;
@@ -57,7 +58,7 @@ export default function ColorPieChart({ data }: { data: ColorData[] }) {
             iconType="circle"
             iconSize={8}
             formatter={(value) => (
-              <span style={{ color: '#a0a0b8' }}>{value}</span>
+              <span style={{ color: '#6b6358' }}>{value}</span>
             )}
           />
         </PieChart>

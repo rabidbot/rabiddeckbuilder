@@ -24,10 +24,10 @@ export default function DraggableCard({ entry, compact, source }: DraggableCardP
 
   const scoreColor =
     entry.scores.composite >= 70
-      ? 'text-[#52c272]'
+      ? 'text-success'
       : entry.scores.composite >= 45
-        ? 'text-[#c9a84c]'
-        : 'text-[#e05252]';
+        ? 'text-primary'
+        : 'text-danger';
 
   const content = compact ? (
     <div
@@ -35,10 +35,10 @@ export default function DraggableCard({ entry, compact, source }: DraggableCardP
       {...listeners}
       {...attributes}
       style={style}
-      className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-transparent hover:border-[#c9a84c]/20 hover:bg-white/[0.03] cursor-grab active:cursor-grabbing transition-colors touch-none select-none text-xs"
+      className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-transparent hover:border-primary/20 hover:bg-black/[0.03] cursor-grab active:cursor-grabbing transition-colors touch-none select-none text-xs"
     >
-      <span className="flex-1 truncate text-[#e8e8f0]">{card.name}</span>
-      <span className="text-[10px] text-[#6a6a88] font-mono shrink-0">({card.cmc || 0})</span>
+      <span className="flex-1 truncate text-text">{card.name}</span>
+      <span className="text-[10px] text-text-muted font-mono shrink-0">({card.cmc || 0})</span>
       <span className={`text-[10px] font-bold shrink-0 ${scoreColor}`}>
         {entry.scores.composite}
       </span>
@@ -49,10 +49,10 @@ export default function DraggableCard({ entry, compact, source }: DraggableCardP
       {...listeners}
       {...attributes}
       style={style}
-      className="flex items-center gap-2 px-3 py-2 rounded-xl border border-white/[0.04] bg-white/[0.02] hover:border-[#c9a84c]/20 hover:bg-[#c9a84c]/5 cursor-grab active:cursor-grabbing transition-all touch-none select-none"
+      className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border/50 bg-black/[0.02] hover:border-primary/20 hover:bg-primary/5 cursor-grab active:cursor-grabbing transition-all touch-none select-none"
     >
-      <span className="flex-1 truncate text-sm text-[#e8e8f0]">{card.name}</span>
-      <span className="text-xs text-[#6a6a88] font-mono shrink-0">
+      <span className="flex-1 truncate text-sm text-text">{card.name}</span>
+      <span className="text-xs text-text-muted font-mono shrink-0">
         {card.mana_cost ? card.mana_cost.replace(/[{}]/g, '') : ''}
       </span>
       <span className={`text-xs font-bold shrink-0 ${scoreColor}`}>

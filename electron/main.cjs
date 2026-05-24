@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, net } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, net, protocol } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -7,29 +7,38 @@ const isDev = !app.isPackaged;
 let mainWindow = null;
 let db = null;
 
-function createWindow() {
-  mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
-    minWidth: 1024,
-    minHeight: 700,
-    title: 'EDH Deck Builder',
-    backgroundColor: '#0d0d0f',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.cjs'),
-      contextIsolation: true,
-      nodeIntegration: false,
-    },
+app.whenReady().then(async () => {
+  protocol.handle('app', (request) => {
+    const url = new URL(request.url);
+    const relativePath = url.pathname.startsWith('/') ? url.pathname.slice(1) : url.pathname;
+    const fullPath = path.join(app.getAppPath(), relativePath);
+    try {
+      const data = fs.readFileSync(fullPath);
+      const ext = path.extname(fullPath).toLowerCase();
+      const mimeTypes = {
+        '.html': 'text/html',
+        '.js': 'application/javascript',
+        '.mjs': 'application/javascript',
+        '.css': 'text/css',
+        '.json': 'application/json',
+        '.png': 'image/png',
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.svg': 'image/svg+xml',
+        '.ico': 'image/x-icon',
+      };
+      return new Response(data, {
+        status: 200,
+        headers: {
+          'content-type': mimeTypes[ext] || 'application/octet-stream',
+          'access-control-allow-origin': '*',
+        },
+      });
+    } catch {
+      return new Response('Not found', { status: 404 });
+    }
   });
 
-  if (isDev) {
-    mainWindow.loadURL('http://localhost:5173');
-  } else {
-    mainWindow.loadFile(path.join(__dirname, '..', 'dist', 'index.html'));
-  }
-}
-
-app.whenReady().then(async () => {
   const { default: initSqlJs } = require('sql.js');
   const dbPath = path.join(app.getPath('userData'), 'edh-deckbuilder.db');
 
@@ -42,16 +51,42 @@ app.whenReady().then(async () => {
       const SQL = await initSqlJs();
       db = new SQL.Database();
     }
-    setupIPC();
     createWindow();
+    setupIPC();
   } catch (err) {
     console.error('Failed to initialize database:', err);
     const SQL = await initSqlJs();
     db = new SQL.Database();
-    setupIPC();
     createWindow();
+    setupIPC();
   }
 });
+
+function createWindow() {
+  mainWindow = new BrowserWindow({
+    width: 1400,
+    height: 900,
+    minWidth: 1024,
+    minHeight: 700,
+    title: 'EDH Deck Builder',
+    backgroundColor: '#faf7f2',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDesc, url) => {
+    console.error(`Failed to load ${url}: ${errorCode} - ${errorDesc}`);
+  });
+
+  if (isDev) {
+    mainWindow.loadURL('http://localhost:5173');
+  } else {
+    mainWindow.loadURL('app://dist/index.html');
+  }
+}
 
 app.on('window-all-closed', () => {
   if (db) {

@@ -1,53 +1,39 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg-primary: #0d0d0f;
-  --color-bg-secondary: #16161a;
-  --color-bg-card: #1e1e24;
-  --color-bg-elevated: #25252d;
-  --color-bg-hover: #2d2d38;
-  --color-border: #333344;
-  --color-border-light: #44445a;
-  --color-gold: #c9a84c;
-  --color-gold-light: #e8c86a;
-  --color-gold-dark: #8b6914;
-  --color-amber: #d4843a;
-  --color-text-primary: #e8e8f0;
-  --color-text-secondary: #a0a0b8;
-  --color-text-muted: #6a6a88;
-  --color-red: #e05252;
-  --color-green: #52c272;
-  --color-blue: #5280e0;
-  --color-purple: #9052e0;
-  --color-orange: #e08052;
-  --color-cyan: #52c8e0;
-  --color-score-high: #52c272;
-  --color-score-mid: #c9a84c;
-  --color-score-low: #e05252;
-  --color-mana-w: #f9f6ee;
-  --color-mana-u: #4a90d9;
-  --color-mana-b: #8b52a0;
-  --color-mana-r: #d94a4a;
-  --color-mana-g: #2d8b4a;
-  --color-mana-c: #b0a890;
+  --color-surface: #faf7f2;
+  --color-surface-secondary: #f3efe8;
+  --color-card: #ffffff;
+  --color-card-elevated: #fdfcfa;
+  --color-hover: #f0ebe0;
+  --color-border: #e2dbd0;
+  --color-border-light: #ece7de;
+  --color-primary: #a67c38;
+  --color-primary-light: #c4a265;
+  --color-primary-dark: #7a5a28;
+  --color-accent: #c87a3a;
+  --color-text: #2c2416;
+  --color-text-secondary: #6b6358;
+  --color-text-muted: #9a9080;
+  --color-success: #4a7a3c;
+  --color-danger: #c44a3a;
+  --color-info: #4a6a9c;
+  --color-purple: #7a5a9c;
+  --color-orange: #c47a4a;
+  --color-mana-w: #f9f3e4;
+  --color-mana-u: #5a9ad4;
+  --color-mana-b: #8b6a9c;
+  --color-mana-r: #d45a4a;
+  --color-mana-g: #3d8b4a;
+  --color-mana-c: #b0a48a;
 }
 
 body {
   background:
-    radial-gradient(circle at top, rgba(201, 168, 76, 0.14), transparent 32%),
-    radial-gradient(circle at 18% 18%, rgba(82, 128, 224, 0.12), transparent 24%),
-    radial-gradient(circle at 82% 12%, rgba(144, 82, 224, 0.12), transparent 24%),
-    linear-gradient(180deg, #09090c 0%, #101018 42%, #14141d 100%);
+    radial-gradient(circle at top, rgba(166, 124, 56, 0.06), transparent 40%),
+    radial-gradient(circle at 15% 20%, rgba(196, 122, 58, 0.04), transparent 30%),
+    linear-gradient(180deg, #fdfbf7 0%, #faf7f2 40%, #f3efe8 100%);
   min-height: 100vh;
-}
-
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 22%);
-  z-index: -1;
 }
 
 ::-webkit-scrollbar {
@@ -55,14 +41,14 @@ body::before {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #16161a;
+  background: #f3efe8;
 }
 ::-webkit-scrollbar-thumb {
-  background: #44445a;
+  background: #d4cdbe;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #8b6914;
+  background: #b8a88a;
 }
 
 @keyframes toast-in {
@@ -76,4 +62,3 @@ body::before {
 .toast-enter {
   animation: toast-in 0.25s ease-out forwards;
 }
-

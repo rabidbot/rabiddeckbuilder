@@ -77,7 +77,7 @@ export default function CommanderSelector() {
 
   if (!legendaries.length && collection.length > 0) {
     return (
-      <div className="rounded-xl border border-[#333344] bg-gradient-to-b from-[#1f1f28]/90 to-[#14141c]/90 p-4 text-xs text-[#6a6a88] shadow-[0_18px_36px_rgba(0,0,0,0.28)]">
+      <div className="rounded-xl border border-border bg-card shadow-sm p-4 text-xs text-text-muted shadow-[0_18px_36px_rgba(0,0,0,0.28)]">
         No legendary creatures found in your collection.
       </div>
     );
@@ -87,14 +87,14 @@ export default function CommanderSelector() {
 
   return (
     <div className="relative">
-      <div className="rounded-xl border border-[#333344] bg-gradient-to-b from-[#1f1f28]/90 to-[#14141c]/90 p-4 flex flex-wrap items-center gap-4 shadow-[0_18px_36px_rgba(0,0,0,0.28)]">
-        <span className="text-xs font-semibold uppercase tracking-widest text-[#a0a0b8] shrink-0">
+      <div className="rounded-xl border border-border bg-card shadow-sm p-4 flex flex-wrap items-center gap-4 shadow-[0_18px_36px_rgba(0,0,0,0.28)]">
+        <span className="text-xs font-semibold uppercase tracking-widest text-text-secondary shrink-0">
           Commander
         </span>
 
         <button
           onClick={() => { setOpen(!open); if (!open) setTimeout(() => inputRef.current?.focus(), 50); }}
-          className="flex-1 min-w-[200px] flex items-center justify-between bg-white/[0.03] border border-[#44445a] rounded-lg text-[#e8e8f0] px-3 py-2 text-sm hover:border-[#c9a84c] transition-colors"
+          className="flex-1 min-w-[200px] flex items-center justify-between bg-black/[0.03] border border-border-light rounded-lg text-text px-3 py-2 text-sm hover:border-[#c9a84c] transition-colors"
         >
           {commander ? (
             <div className="flex items-center gap-3">
@@ -106,37 +106,37 @@ export default function CommanderSelector() {
                   </span>
                 ))}
               </div>
-              <span className="text-[#e8c86a] font-semibold">{commander.name}</span>
+              <span className="text-primary font-semibold">{commander.name}</span>
             </div>
           ) : (
-            <span className="text-[#6a6a88]">
+            <span className="text-text-muted">
               {selectedEntry ? selectedEntry.scryfallData.name : '-- Select a Commander --'}
             </span>
           )}
-          <ChevronDown size={15} className={`text-[#6a6a88] transition-transform ${open ? 'rotate-180' : ''}`} />
+          <ChevronDown size={15} className={`text-text-muted transition-transform ${open ? 'rotate-180' : ''}`} />
         </button>
       </div>
 
       {open && (
         <>
           <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
-          <div className="absolute top-full left-0 right-0 z-40 mt-2 rounded-xl border border-[#44445a] bg-[#1a1a24]/98 backdrop-blur-xl shadow-2xl overflow-hidden">
-            <div className="px-3 py-2 border-b border-white/[0.04]">
+          <div className="absolute top-full left-0 right-0 z-40 mt-2 rounded-xl border border-border-light bg-card backdrop-blur-xl shadow-2xl overflow-hidden">
+            <div className="px-3 py-2 border-b border-border/50">
               <div className="relative">
-                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#6a6a88]" />
+                <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-muted" />
                 <input
                   ref={inputRef}
                   type="text"
                   placeholder="Search commanders..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full bg-white/[0.03] border border-[#333344] rounded-lg text-[#e8e8f0] pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-[#c9a84c] placeholder:text-[#6a6a88]"
+                  className="w-full bg-black/[0.03] border border-border rounded-lg text-text pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-[#c9a84c] placeholder:text-text-muted"
                 />
               </div>
             </div>
             <div ref={listRef} className="max-h-64 overflow-y-auto">
               {filtered.length === 0 ? (
-                <div className="px-4 py-6 text-xs text-[#6a6a88] text-center">
+                <div className="px-4 py-6 text-xs text-text-muted text-center">
                   No commanders match "{search}"
                 </div>
               ) : (
@@ -150,8 +150,8 @@ export default function CommanderSelector() {
                       onClick={() => { setCommander(card); setOpen(false); setSearch(''); }}
                       onMouseEnter={() => setHighlightIdx(idx)}
                       className={`w-full text-left px-3 py-2 flex items-center gap-3 transition-colors text-xs ${
-                        isSelected ? 'bg-[#c9a84c]/10 text-[#e8c86a]' :
-                        idx === highlightIdx ? 'bg-white/[0.04]' : ''
+                        isSelected ? 'bg-primary/10 text-primary' :
+                        idx === highlightIdx ? 'bg-hover' : ''
                       }`}
                     >
                       <div className="flex gap-1 shrink-0">
@@ -164,7 +164,7 @@ export default function CommanderSelector() {
                       </div>
                       <span className="truncate">{card.name}</span>
                       {isSelected && (
-                        <span className="ml-auto text-[10px] text-[#52c272]">&#10003;</span>
+                        <span className="ml-auto text-[10px] text-success">&#10003;</span>
                       )}
                     </button>
                   );

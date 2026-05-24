@@ -42,7 +42,7 @@ export default function CardPreview({ entry, children }: CardPreviewProps) {
           className="fixed z-[300] pointer-events-none"
           style={{ left: tooltipX, top: tooltipY }}
         >
-          <div className="rounded-xl border border-[#c9a84c]/20 bg-[#1a1a22]/98 shadow-2xl backdrop-blur-xl overflow-hidden w-[220px]">
+          <div className="rounded-xl border border-primary/20 bg-card shadow-lg overflow-hidden w-[220px]">
             {imgUrl ? (
               <img
                 src={imgUrl}
@@ -54,37 +54,37 @@ export default function CardPreview({ entry, children }: CardPreviewProps) {
                 }}
               />
             ) : (
-              <div className="w-full h-[180px] bg-[#1e1e24] flex items-center justify-center text-[#6a6a88] text-xs">
+              <div className="w-full h-[180px] bg-surface-secondary flex items-center justify-center text-text-muted text-xs">
                 No Image
               </div>
             )}
             <div className="px-3 py-2.5 space-y-1.5">
               <div>
-                <span className="text-sm font-semibold text-[#e8e8f0] block truncate">{card.name}</span>
-                <span className="text-[11px] text-[#6a6a88] truncate">{card.type_line || ''}</span>
+                <span className="text-sm font-semibold text-text block truncate">{card.name}</span>
+                <span className="text-[11px] text-text-muted truncate">{card.type_line || ''}</span>
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-[10px] text-[#a0a0b8]">CMC {card.cmc || 0}</span>
+                <span className="text-[10px] text-text-secondary">CMC {card.cmc || 0}</span>
                 {card.mana_cost && (
-                  <span className="text-[10px] text-[#6a6a88] font-mono">{card.mana_cost.replace(/[{}]/g, '')}</span>
+                  <span className="text-[10px] text-text-muted font-mono">{card.mana_cost.replace(/[{}]/g, '')}</span>
                 )}
               </div>
               <div className="flex items-center gap-2">
                 <span className={`text-[11px] font-bold ${
-                  entry.scores.composite >= 70 ? 'text-[#52c272]'
-                  : entry.scores.composite >= 45 ? 'text-[#c9a84c]'
-                  : 'text-[#e05252]'
+                  entry.scores.composite >= 70 ? 'text-success'
+                  : entry.scores.composite >= 45 ? 'text-primary'
+                  : 'text-danger'
                 }`}>
                   Score {entry.scores.composite}
                 </span>
                 {!entry.scores.valid && (
-                  <span className="text-[10px] text-[#e05252] bg-[#e05252]/10 px-1.5 py-0.5 rounded-full">
+                  <span className="text-[10px] text-danger bg-danger/10 px-1.5 py-0.5 rounded-full">
                     Invalid
                   </span>
                 )}
               </div>
               {card.oracle_text && (
-                <p className="text-[10px] text-[#6a6a88] leading-relaxed line-clamp-3 italic">
+                <p className="text-[10px] text-text-muted leading-relaxed line-clamp-3 italic">
                   {card.oracle_text}
                 </p>
               )}

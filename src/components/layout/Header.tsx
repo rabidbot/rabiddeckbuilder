@@ -1,5 +1,16 @@
+import { NavLink } from 'react-router-dom';
+import { Home, Upload, Library, Wand2, BarChart3, Swords } from 'lucide-react';
 import { useCollectionStore } from '../../stores/collectionStore';
 import { useDeckStore } from '../../stores/deckStore';
+
+const navItems = [
+  { to: '/', icon: Home, label: 'Home' },
+  { to: '/import', icon: Upload, label: 'Import' },
+  { to: '/collection', icon: Library, label: 'Collection' },
+  { to: '/builder', icon: Wand2, label: 'Deck Builder' },
+  { to: '/stats', icon: BarChart3, label: 'Stats' },
+  { to: '/tracker', icon: Swords, label: 'Tracker' },
+];
 
 export default function Header() {
   const collectionCount = useCollectionStore((s) => s.collection.length);
@@ -7,28 +18,54 @@ export default function Header() {
   const deckCount = useDeckStore((s) => s.cardIds.length);
 
   return (
-    <header className="sticky top-3 z-50 mx-4 mt-4 px-6 py-4 rounded-2xl border border-[#c9a84c]/20 bg-gradient-to-r from-[#0f0f14]/95 via-[#21180b]/90 to-[#101018]/95 backdrop-blur-xl shadow-[0_20px_45px_rgba(0,0,0,0.42)]">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="grid place-items-center w-10 h-10 rounded-xl bg-gradient-to-br from-[#c9a84c]/20 to-[#d4843a]/15 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-            <span className="text-[#c9a84c] text-xl">&#9733;</span>
+    <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-md">
+      <div className="max-w-[1660px] mx-auto px-4 md:px-6">
+        <div className="flex items-center justify-between h-14">
+          <div className="flex items-center gap-6">
+            <NavLink to="/" className="flex items-center gap-2.5 shrink-0">
+              <span className="text-xl">&#9733;</span>
+              <span className="text-lg font-bold text-text tracking-tight hidden sm:block">
+                Deck Builder
+              </span>
+            </NavLink>
+
+            <nav className="hidden md:flex items-center gap-1">
+              {navItems.map(({ to, icon: Icon, label }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  end={to === '/'}
+                  className={({ isActive }) =>
+                    `flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-text-secondary hover:bg-hover hover:text-text'
+                    }`
+                  }
+                >
+                  <Icon size={16} />
+                  {label}
+                </NavLink>
+              ))}
+            </nav>
           </div>
-          <h1 className="text-xl font-semibold bg-gradient-to-r from-[#e8c86a] to-[#d4843a] bg-clip-text text-transparent">
-            EDH Deck Builder
-          </h1>
-        </div>
-        <div className="flex gap-3 text-sm text-[#a0a0b8] flex-wrap">
-          <span className="px-3 py-2 rounded-full border border-white/5 bg-white/[0.03]">
-            Collection: <strong className="text-[#c9a84c]">{collectionCount}</strong> cards
-          </span>
-          {commander && (
-            <span className="px-3 py-2 rounded-full border border-white/5 bg-white/[0.03]">
-              Cmdr: <strong className="text-[#c9a84c]">{commander.name}</strong>
+
+          <div className="flex items-center gap-3 text-sm">
+            <span className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-text-secondary">
+              <span className="text-text-muted">Collection:</span>
+              <span className="font-semibold text-text">{collectionCount}</span>
             </span>
-          )}
-          <span className="px-3 py-2 rounded-full border border-white/5 bg-white/[0.03]">
-            Deck: <strong className="text-[#c9a84c]">{deckCount}</strong>/99
-          </span>
+            {commander && (
+              <span className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-primary/20 text-text-secondary">
+                <span className="text-text-muted">Cmdr:</span>
+                <span className="font-semibold text-primary truncate max-w-[160px]">{commander.name}</span>
+              </span>
+            )}
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border text-text-secondary">
+              <span className="text-text-muted">Deck:</span>
+              <span className="font-semibold text-text">{deckCount}/99</span>
+            </span>
+          </div>
         </div>
       </div>
     </header>

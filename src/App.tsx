@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom';
 import AppShell from './components/layout/AppShell';
+import WelcomeView from './components/layout/WelcomeView';
 import ImportView from './components/collection/ImportView';
 import CollectionView from './components/collection/CollectionView';
 import DeckBuilderView from './components/deck/DeckBuilderView';
@@ -10,7 +11,8 @@ export default function App() {
   return (
     <Routes>
       <Route element={<AppShell />}>
-        <Route path="/" element={<ImportView />} />
+        <Route path="/" element={<WelcomeView />} />
+        <Route path="/import" element={<ImportView />} />
         <Route path="/collection" element={<CollectionView />} />
         <Route path="/builder" element={<DeckBuilderView />} />
         <Route path="/stats/:deckId?" element={<StatsView />} />

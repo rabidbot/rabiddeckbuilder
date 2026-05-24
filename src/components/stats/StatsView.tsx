@@ -125,9 +125,9 @@ export default function StatsView() {
   if (!deckEntries.length) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] text-center">
-        <BarChart3 size={64} className="text-[#a0a0b8]/30 mb-4" />
-        <h2 className="text-xl font-semibold text-[#e8e8f0] mb-2">No Deck Built</h2>
-        <p className="text-[#a0a0b8] text-sm max-w-md">
+        <BarChart3 size={64} className="text-text-secondary/30 mb-4" />
+        <h2 className="text-xl font-semibold text-text mb-2">No Deck Built</h2>
+        <p className="text-text-secondary text-sm max-w-md">
           Build a deck in the Deck Builder tab first, then view detailed
           statistics and quality analysis here.
         </p>
@@ -138,10 +138,10 @@ export default function StatsView() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-xl font-semibold text-[#e8e8f0] mb-1">Deck Statistics</h2>
-        <p className="text-sm text-[#6a6a88]">
+        <h2 className="text-xl font-semibold text-text mb-1">Deck Statistics</h2>
+        <p className="text-sm text-text-muted">
           {commander?.name && (
-            <span className="text-[#e8c86a]">{commander.name}</span>
+            <span className="text-primary">{commander.name}</span>
           )}
           {gamePlan && <span> &mdash; {gamePlan}</span>}
           <span className="ml-2">{deckEntries.length} cards</span>
@@ -150,50 +150,50 @@ export default function StatsView() {
 
       {/* Quick Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="rounded-2xl border border-white/5 bg-gradient-to-b from-[#1f1f28]/90 to-[#14141c]/90 p-4 shadow-[0_12px_24px_rgba(0,0,0,0.2)]">
+        <div className="rounded-2xl border border-border bg-card shadow-sm p-4 shadow-[0_12px_24px_rgba(0,0,0,0.2)]">
           <div className="flex items-center gap-2 mb-2">
-            <TrendingUp size={16} className="text-[#c9a84c]" />
-            <span className="text-[10px] uppercase tracking-[0.08em] text-[#6a6a88]">Avg Score</span>
+            <TrendingUp size={16} className="text-primary" />
+            <span className="text-[10px] uppercase tracking-[0.08em] text-text-muted">Avg Score</span>
           </div>
           <span
             className={`text-2xl font-bold ${
-              avgScore >= 70 ? 'text-[#52c272]' : avgScore >= 50 ? 'text-[#c9a84c]' : 'text-[#e05252]'
+              avgScore >= 70 ? 'text-success' : avgScore >= 50 ? 'text-primary' : 'text-danger'
             }`}
           >
             {avgScore}
           </span>
-          <div className="text-[10px] text-[#6a6a88] mt-1">/ 100 composite</div>
+          <div className="text-[10px] text-text-muted mt-1">/ 100 composite</div>
         </div>
 
-        <div className="rounded-2xl border border-white/5 bg-gradient-to-b from-[#1f1f28]/90 to-[#14141c]/90 p-4 shadow-[0_12px_24px_rgba(0,0,0,0.2)]">
+        <div className="rounded-2xl border border-border bg-card shadow-sm p-4 shadow-[0_12px_24px_rgba(0,0,0,0.2)]">
           <div className="flex items-center gap-2 mb-2">
-            <Sparkles size={16} className="text-[#5280e0]" />
-            <span className="text-[10px] uppercase tracking-[0.08em] text-[#6a6a88]">Avg CMC</span>
+            <Sparkles size={16} className="text-info" />
+            <span className="text-[10px] uppercase tracking-[0.08em] text-text-muted">Avg CMC</span>
           </div>
-          <span className="text-2xl font-bold text-[#e8e8f0]">{avgCmc}</span>
-          <div className="text-[10px] text-[#6a6a88] mt-1">non-land average</div>
+          <span className="text-2xl font-bold text-text">{avgCmc}</span>
+          <div className="text-[10px] text-text-muted mt-1">non-land average</div>
         </div>
 
-        <div className="rounded-2xl border border-white/5 bg-gradient-to-b from-[#1f1f28]/90 to-[#14141c]/90 p-4 shadow-[0_12px_24px_rgba(0,0,0,0.2)]">
+        <div className="rounded-2xl border border-border bg-card shadow-sm p-4 shadow-[0_12px_24px_rgba(0,0,0,0.2)]">
           <div className="flex items-center gap-2 mb-2">
-            <Shield size={16} className="text-[#d94a4a]" />
-            <span className="text-[10px] uppercase tracking-[0.08em] text-[#6a6a88]">Lands</span>
+            <Shield size={16} className="text-danger" />
+            <span className="text-[10px] uppercase tracking-[0.08em] text-text-muted">Lands</span>
           </div>
-          <span className="text-2xl font-bold text-[#e8e8f0]">
+          <span className="text-2xl font-bold text-text">
             {deckEntries.filter((e) => detectCardRoles(e.scryfallData, cmdAnalysis!).land).length}
           </span>
-          <div className="text-[10px] text-[#6a6a88] mt-1">
+          <div className="text-[10px] text-text-muted mt-1">
             {blueprint ? `target: ${blueprint.lands}` : '—'}
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/5 bg-gradient-to-b from-[#1f1f28]/90 to-[#14141c]/90 p-4 shadow-[0_12px_24px_rgba(0,0,0,0.2)]">
+        <div className="rounded-2xl border border-border bg-card shadow-sm p-4 shadow-[0_12px_24px_rgba(0,0,0,0.2)]">
           <div className="flex items-center gap-2 mb-2">
-            <BarChart3 size={16} className="text-[#e08052]" />
-            <span className="text-[10px] uppercase tracking-[0.08em] text-[#6a6a88]">Non-Lands</span>
+            <BarChart3 size={16} className="text-accent" />
+            <span className="text-[10px] uppercase tracking-[0.08em] text-text-muted">Non-Lands</span>
           </div>
-          <span className="text-2xl font-bold text-[#e8e8f0]">{nonLandEntries.length}</span>
-          <div className="text-[10px] text-[#6a6a88] mt-1">
+          <span className="text-2xl font-bold text-text">{nonLandEntries.length}</span>
+          <div className="text-[10px] text-text-muted mt-1">
             {blueprint ? `target: ${99 - blueprint.lands}` : '—'}
           </div>
         </div>
@@ -208,30 +208,30 @@ export default function StatsView() {
         </div>
 
         {/* Score Distribution */}
-        <div className="rounded-2xl border border-white/5 bg-gradient-to-b from-[#1f1f28]/90 to-[#14141c]/90 p-5 shadow-[0_18px_36px_rgba(0,0,0,0.28)]">
-          <h3 className="text-xs font-semibold uppercase tracking-[0.06em] text-[#a0a0b8] mb-4">
+        <div className="rounded-2xl border border-border bg-card shadow-sm p-5 shadow-[0_18px_36px_rgba(0,0,0,0.28)]">
+          <h3 className="text-xs font-semibold uppercase tracking-[0.06em] text-text-secondary mb-4">
             Score Distribution
           </h3>
           <div className="space-y-2">
             {scoreDist.map((b) => {
               const pct = nonLandEntries.length ? (b.count / nonLandEntries.length) * 100 : 0;
               const color =
-                b.label === '90-100' ? '#52c272'
-                : b.label.startsWith('8') ? '#7ce39a'
-                : b.label.startsWith('7') ? '#c9a84c'
-                : b.label.startsWith('6') ? '#d4843a'
-                : b.label.startsWith('5') ? '#e08052'
-                : '#e05252';
+                b.label === '90-100' ? '#4a7a3c'
+                : b.label.startsWith('8') ? '#6b9a50'
+                : b.label.startsWith('7') ? '#a67c38'
+                : b.label.startsWith('6') ? '#c87a3a'
+                : b.label.startsWith('5') ? '#c47a4a'
+                : '#c44a3a';
               return (
                 <div key={b.label} className="flex items-center gap-3">
-                  <span className="w-14 text-right text-[10px] text-[#a0a0b8]">{b.label}</span>
-                  <div className="flex-1 h-3 rounded-full bg-white/[0.04] overflow-hidden">
+                  <span className="w-14 text-right text-[10px] text-text-secondary">{b.label}</span>
+                  <div className="flex-1 h-3 rounded-full bg-black/[0.04] overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all"
                       style={{ width: `${pct}%`, background: color }}
                     />
                   </div>
-                  <span className="w-10 text-right text-[10px] text-[#6a6a88]">
+                  <span className="w-10 text-right text-[10px] text-text-muted">
                     {b.count}
                   </span>
                 </div>
@@ -242,30 +242,30 @@ export default function StatsView() {
 
         {/* Commander Analysis */}
         {cmdAnalysis && (
-          <div className="rounded-2xl border border-white/5 bg-gradient-to-b from-[#1f1f28]/90 to-[#14141c]/90 p-5 shadow-[0_18px_36px_rgba(0,0,0,0.28)] lg:col-span-2">
-            <h3 className="text-xs font-semibold uppercase tracking-[0.06em] text-[#a0a0b8] mb-4">
+          <div className="rounded-2xl border border-border bg-card shadow-sm p-5 shadow-[0_18px_36px_rgba(0,0,0,0.28)] lg:col-span-2">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.06em] text-text-secondary mb-4">
               Commander Analysis
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
               <div>
-                <span className="text-[10px] uppercase tracking-[0.08em] text-[#6a6a88] block mb-2">Themes</span>
+                <span className="text-[10px] uppercase tracking-[0.08em] text-text-muted block mb-2">Themes</span>
                 <div className="flex flex-wrap gap-1.5">
                   {cmdAnalysis.themes.map((t) => (
-                    <span key={t} className="px-2 py-1 rounded-full text-[11px] border border-[#c9a84c]/15 bg-white/[0.03] text-[#a0a0b8] capitalize">
+                    <span key={t} className="px-2 py-1 rounded-full text-[11px] border border-primary/15 bg-black/[0.03] text-text-secondary capitalize">
                       {t}
                     </span>
                   ))}
                 </div>
               </div>
               <div>
-                <span className="text-[10px] uppercase tracking-[0.08em] text-[#6a6a88] block mb-2">Posture</span>
-                <span className="text-[#e8e8f0] capitalize">{cmdAnalysis.posture}</span>
+                <span className="text-[10px] uppercase tracking-[0.08em] text-text-muted block mb-2">Posture</span>
+                <span className="text-text capitalize">{cmdAnalysis.posture}</span>
               </div>
               <div>
-                <span className="text-[10px] uppercase tracking-[0.08em] text-[#6a6a88] block mb-2">Triggers</span>
+                <span className="text-[10px] uppercase tracking-[0.08em] text-text-muted block mb-2">Triggers</span>
                 <div className="flex flex-wrap gap-1.5">
                   {cmdAnalysis.wants.map((w) => (
-                    <span key={w} className="px-2 py-1 rounded-full text-[11px] border border-white/[0.06] bg-white/[0.02] text-[#a0a0b8] capitalize">
+                    <span key={w} className="px-2 py-1 rounded-full text-[11px] border border-border/50 bg-black/[0.02] text-text-secondary capitalize">
                       {w}
                     </span>
                   ))}

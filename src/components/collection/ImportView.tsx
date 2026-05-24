@@ -153,10 +153,10 @@ export default function ImportView() {
 
   return (
     <div className="max-w-2xl mx-auto mt-12">
-      <div className="rounded-2xl border border-white/5 bg-gradient-to-b from-[#1f1f28]/90 to-[#14141c]/90 p-10 text-center shadow-[0_18px_36px_rgba(0,0,0,0.28)]">
-        <Upload size={48} className="mx-auto mb-4 text-[#a0a0b8]/50" />
-        <h2 className="text-2xl font-semibold text-[#c9a84c] mb-2">Import Your Collection</h2>
-        <p className="text-[#a0a0b8] text-sm mb-8 leading-relaxed">
+      <div className="rounded-2xl border border-border bg-card p-10 text-center shadow-sm">
+        <Upload size={48} className="mx-auto mb-4 text-text-muted/50" />
+        <h2 className="text-2xl font-semibold text-primary mb-2">Import Your Collection</h2>
+        <p className="text-text-secondary text-sm mb-8 leading-relaxed">
           Upload a CSV exported from ManaBox to get started.
           <br />
           Card data will be loaded from Scryfall and scored automatically.
@@ -164,7 +164,7 @@ export default function ImportView() {
 
         {!importing && (
           <div
-            className="relative border-2 border-dashed border-[#44445a] rounded-lg p-10 cursor-pointer transition-colors hover:border-[#c9a84c] hover:bg-[#c9a84c]/5 bg-white/[0.02] mb-6"
+            className="relative border-2 border-dashed border-border-light rounded-lg p-10 cursor-pointer transition-colors hover:border-primary hover:bg-primary/5 bg-black/[0.02] mb-6"
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
               e.preventDefault();
@@ -181,29 +181,29 @@ export default function ImportView() {
                 if (file) processFile(file);
               }}
             />
-            <p className="text-[#a0a0b8] pointer-events-none">
-              <strong className="block text-[#c9a84c] text-base mb-2">Click to choose file or drag & drop</strong>
+            <p className="text-text-secondary pointer-events-none">
+              <strong className="block text-primary text-base mb-2">Click to choose file or drag & drop</strong>
               <span className="text-sm">Accepts ManaBox CSV export (.csv)</span>
             </p>
           </div>
         )}
 
         {importing && (
-          <div className="rounded-xl border border-[#333344] bg-[#1e1e24] p-8 mb-6">
+          <div className="rounded-xl border border-border bg-card p-8 mb-6">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-semibold text-[#e8e8f0]">{status}</span>
-              <span className="text-sm font-bold text-[#c9a84c]">{progress}%</span>
+              <span className="text-sm font-semibold text-text">{status}</span>
+              <span className="text-sm font-bold text-primary">{progress}%</span>
             </div>
-            <div className="h-2.5 rounded-full bg-[#0d0d0f] overflow-hidden mb-4">
+            <div className="h-2.5 rounded-full bg-surface-secondary overflow-hidden mb-4">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-[#8b6914] to-[#c9a84c] transition-all duration-300"
+                className="h-full rounded-full bg-gradient-to-r from-primary-dark to-primary transition-all duration-300"
                 style={{ width: `${progress}%` }}
               />
             </div>
             <div className="flex justify-center">
               <button
                 onClick={handleAbort}
-                className="px-4 py-2 rounded-lg bg-[#e05252]/10 border border-[#e05252]/20 text-[#e05252] text-xs font-medium hover:bg-[#e05252]/20 transition-colors"
+                className="px-4 py-2 rounded-lg bg-danger/10 border border-danger/20 text-danger text-xs font-medium hover:bg-danger/20 transition-colors"
               >
                 Cancel Import
               </button>
@@ -211,9 +211,9 @@ export default function ImportView() {
           </div>
         )}
 
-        <div className="bg-white/[0.03] border border-white/5 rounded-lg p-4 text-left text-xs text-[#6a6a88]">
-          <strong className="text-[#a0a0b8] block mb-2">Expected Columns:</strong>
-          <code className="text-[#c9a84c] font-mono">
+        <div className="bg-black/[0.03] border border-border rounded-lg p-4 text-left text-xs text-text-muted">
+          <strong className="text-text-secondary block mb-2">Expected Columns:</strong>
+          <code className="text-primary font-mono">
             Name, Set code, Set name, Collector number, Foil, Rarity, Quantity, ManaBox ID,
             Scryfall ID, Purchase price, Misprint, Altered, Condition, Language
           </code>
@@ -221,13 +221,13 @@ export default function ImportView() {
       </div>
 
       {warnings.length > 0 && (
-        <div className="mt-6 rounded-xl border border-[#d4843a]/20 bg-[#d4843a]/5 p-6">
-          <h3 className="text-sm font-semibold text-[#d4843a] mb-3">
+        <div className="mt-6 rounded-xl border border-accent/20 bg-accent/5 p-6">
+          <h3 className="text-sm font-semibold text-accent mb-3">
             Warnings ({warnings.length})
           </h3>
           <div className="flex flex-col gap-1.5 max-h-60 overflow-y-auto">
             {warnings.map((w, i) => (
-              <div key={i} className="text-xs text-[#d4843a]/80 flex items-start gap-2">
+              <div key={i} className="text-xs text-accent/80 flex items-start gap-2">
                 <span className="shrink-0 mt-0.5">&#9888;</span>
                 {w}
               </div>

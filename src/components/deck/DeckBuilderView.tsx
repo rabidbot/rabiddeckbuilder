@@ -62,16 +62,16 @@ function buildProfile(
 }
 
 function fixStatusColor(actual: number, min: number, soft: number, good: number) {
-  if (actual >= good) return 'text-[#52c272]';
-  if (actual >= soft) return 'text-[#c9a84c]';
-  if (actual >= min) return 'text-[#d4843a]';
-  return 'text-[#e05252]';
+  if (actual >= good) return 'text-success';
+  if (actual >= soft) return 'text-primary';
+  if (actual >= min) return 'text-accent';
+  return 'text-danger';
 }
 
 function barColor(actual: number, good: number, soft: number) {
-  if (actual >= good) return 'bg-gradient-to-r from-[#52c272] to-[#2d8b4a]';
-  if (actual >= soft) return 'bg-gradient-to-r from-[#c9a84c] to-[#8b6914]';
-  return 'bg-gradient-to-r from-[#d4843a] to-[#e05252]';
+  if (actual >= good) return 'bg-gradient-to-r from-success to-[#3d6a30]';
+  if (actual >= soft) return 'bg-gradient-to-r from-primary to-primary-dark';
+  return 'bg-gradient-to-r from-accent to-danger';
 }
 
 export default function DeckBuilderView() {
@@ -167,9 +167,9 @@ export default function DeckBuilderView() {
   if (!collection.length) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] text-center">
-        <Wand2 size={64} className="text-[#a0a0b8]/30 mb-4" />
-        <h2 className="text-xl font-semibold text-[#e8e8f0] mb-2">Deck Builder</h2>
-        <p className="text-[#a0a0b8] text-sm max-w-md">
+        <Wand2 size={64} className="text-text-secondary/30 mb-4" />
+        <h2 className="text-xl font-semibold text-text mb-2">Deck Builder</h2>
+        <p className="text-text-secondary text-sm max-w-md">
           Import a collection and select a commander first, then build your deck here.
         </p>
       </div>
@@ -179,9 +179,9 @@ export default function DeckBuilderView() {
   if (!commander) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] text-center">
-        <Wand2 size={64} className="text-[#a0a0b8]/30 mb-4" />
-        <h2 className="text-xl font-semibold text-[#e8e8f0] mb-2">Select a Commander</h2>
-        <p className="text-[#a0a0b8] text-sm max-w-md">
+        <Wand2 size={64} className="text-text-secondary/30 mb-4" />
+        <h2 className="text-xl font-semibold text-text mb-2">Select a Commander</h2>
+        <p className="text-text-secondary text-sm max-w-md">
           Go to the Collection tab and pick a legendary creature from your collection.
         </p>
       </div>
@@ -302,17 +302,17 @@ export default function DeckBuilderView() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-3">
-            <h2 className="text-lg font-semibold text-[#e8e8f0]">
+            <h2 className="text-lg font-semibold text-text">
               {commander.name}
             </h2>
             {activeDeckName && (
-              <span className="text-xs text-[#6a6a88] bg-white/[0.03] border border-white/[0.04] px-2.5 py-0.5 rounded-full">
+              <span className="text-xs text-text-muted bg-black/[0.03] border border-border/50 px-2.5 py-0.5 rounded-full">
                 {activeDeckName}
               </span>
             )}
           </div>
           {gamePlan && (
-            <p className="text-xs text-[#a0a0b8] mt-0.5">{gamePlan}</p>
+            <p className="text-xs text-text-secondary mt-0.5">{gamePlan}</p>
           )}
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -320,20 +320,20 @@ export default function DeckBuilderView() {
             onClick={handleBuild}
             disabled={isBuilding}
             title="Ctrl+B"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-br from-[#d4843a] to-[#8b6914] text-white font-semibold text-sm shadow-[0_8px_20px_rgba(0,0,0,0.22)] hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-br from-accent to-primary-dark text-white font-semibold text-sm shadow-[0_8px_20px_rgba(0,0,0,0.22)] hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <Wand2 size={15} />
             {isBuilding ? 'Building...' : 'Build Optimal Deck'}
           </button>
-          <div className="flex rounded-xl border border-[#44445a] overflow-hidden">
+          <div className="flex rounded-xl border border-border-light overflow-hidden">
             {(['casual', '75%', 'competitive'] as const).map((level) => (
               <button
                 key={level}
                 onClick={() => setPowerLevel(level)}
                 className={`px-3 py-1.5 text-xs font-medium transition-colors ${
                   powerLevel === level
-                    ? 'bg-[#c9a84c]/20 text-[#e8c86a]'
-                    : 'text-[#6a6a88] hover:text-[#a0a0b8] hover:bg-white/[0.02]'
+                    ? 'bg-primary/20 text-primary'
+                    : 'text-text-muted hover:text-text-secondary hover:bg-black/[0.02]'
                 }`}
               >
                 {level === 'competitive' ? 'cEDH' : level === '75%' ? 'High Power' : 'Casual'}
@@ -344,7 +344,7 @@ export default function DeckBuilderView() {
             <>
               <button
                 onClick={() => { setDeckName(activeDeckName || ''); setSaveModalOpen(true); }}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-[#44445a] text-[#a0a0b8] text-sm hover:border-[#52c272] hover:text-[#52c272] transition-colors"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-border-light text-text-secondary text-sm hover:border-[#52c272] hover:text-success transition-colors"
                 title="Ctrl+S"
               >
                 <Save size={15} />
@@ -352,21 +352,21 @@ export default function DeckBuilderView() {
               </button>
               <button
                 onClick={() => setLoadModalOpen(true)}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-[#44445a] text-[#a0a0b8] text-sm hover:border-[#5280e0] hover:text-[#5280e0] transition-colors"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-border-light text-text-secondary text-sm hover:border-info hover:text-info transition-colors"
               >
                 <FolderOpen size={15} />
                 Load
               </button>
               <button
                 onClick={handleExport}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-[#44445a] text-[#a0a0b8] text-sm hover:border-[#c9a84c] hover:text-[#e8c86a] transition-colors"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-border-light text-text-secondary text-sm hover:border-[#c9a84c] hover:text-primary transition-colors"
               >
                 <Download size={15} />
                 Export
               </button>
               <button
                 onClick={handleImport}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-[#44445a] text-[#a0a0b8] text-sm hover:border-[#9052e0] hover:text-[#9052e0] transition-colors"
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-border-light text-text-secondary text-sm hover:border-purple hover:text-purple transition-colors"
               >
                 <ClipboardPaste size={15} />
                 Import
@@ -376,8 +376,8 @@ export default function DeckBuilderView() {
                 onBlur={() => setClearConfirm(false)}
                 className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-sm transition-colors ${
                   clearConfirm
-                    ? 'border-[#e05252] bg-[#e05252]/10 text-[#e05252]'
-                    : 'border-[#44445a] text-[#a0a0b8] hover:border-[#e05252] hover:text-[#e05252]'
+                    ? 'border-[#e05252] bg-[#e05252]/10 text-danger'
+                    : 'border-border-light text-text-secondary hover:border-[#e05252] hover:text-danger'
                 }`}
               >
                 <Trash2 size={15} />
@@ -391,15 +391,15 @@ export default function DeckBuilderView() {
       {/* Hero Stats Row */}
       {blueprint && profile && (
         <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-5 gap-2">
-          <div className="rounded-xl border border-[#c9a84c]/20 bg-gradient-to-br from-[#c9a84c]/8 to-[#5280e0]/3 p-3 col-span-2 md:col-span-1">
-            <div className="text-[9px] uppercase tracking-[0.12em] text-[#6a6a88] mb-1">Game Plan</div>
-            <div className="text-sm font-bold text-[#e8e8f0]">{gamePlan || 'No plan'}</div>
-            <div className="text-[10px] text-[#a0a0b8] mt-0.5">
+          <div className="rounded-xl border border-[#c9a84c]/20 bg-gradient-to-br from-primary/8 to-info/3 p-3 col-span-2 md:col-span-1">
+            <div className="text-[9px] uppercase tracking-[0.12em] text-text-muted mb-1">Game Plan</div>
+            <div className="text-sm font-bold text-text">{gamePlan || 'No plan'}</div>
+            <div className="text-[10px] text-text-secondary mt-0.5">
               {cmdAnalysis?.posture === 'control' ? 'Controlling' : cmdAnalysis?.posture === 'aggro' ? 'Aggressive' : 'Midrange'}
             </div>
             <div className="flex flex-wrap gap-1 mt-2">
               {cmdAnalysis?.themes.map((t) => (
-                <span key={t} className="px-1.5 py-0.5 rounded-full text-[9px] border border-[#c9a84c]/12 bg-white/[0.02] text-[#a0a0b8]">
+                <span key={t} className="px-1.5 py-0.5 rounded-full text-[9px] border border-primary/12 bg-black/[0.02] text-text-secondary">
                   {t}
                 </span>
               ))}
@@ -407,13 +407,13 @@ export default function DeckBuilderView() {
           </div>
 
           {statRows.slice(0, 4).map((row) => (
-            <div key={row.label} className="rounded-xl border border-white/5 bg-gradient-to-b from-[#1f1f28]/90 to-[#14141c]/90 p-3 shadow-[0_12px_24px_rgba(0,0,0,0.2)]">
-              <div className="text-[9px] uppercase tracking-[0.12em] text-[#6a6a88] mb-0.5">{row.label}</div>
+            <div key={row.label} className="rounded-xl border border-border bg-card shadow-sm p-3 shadow-[0_12px_24px_rgba(0,0,0,0.2)]">
+              <div className="text-[9px] uppercase tracking-[0.12em] text-text-muted mb-0.5">{row.label}</div>
               <div className="flex items-baseline gap-1.5">
                 <span className={`text-lg font-bold ${fixStatusColor(row.actual, row.min, row.soft, row.good)}`}>
                   {row.actual}
                 </span>
-                <span className="text-[10px] text-[#6a6a88]">/ {row.target}</span>
+                <span className="text-[10px] text-text-muted">/ {row.target}</span>
               </div>
               <div className="mt-1.5 h-1 rounded-full bg-white/[0.04] overflow-hidden">
                 <div
@@ -432,8 +432,8 @@ export default function DeckBuilderView() {
       {/* Save Modal */}
       {saveModalOpen && (
         <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setSaveModalOpen(false)}>
-          <div className="rounded-2xl border border-white/10 bg-[#1a1a24]/98 p-6 w-full max-w-sm shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-sm font-semibold text-[#e8e8f0] mb-4">Save Deck</h3>
+          <div className="rounded-2xl border border-white/10 bg-card p-6 w-full max-w-sm shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-sm font-semibold text-text mb-4">Save Deck</h3>
             <input
               id="save-deck-name"
               type="text"
@@ -442,11 +442,11 @@ export default function DeckBuilderView() {
               onChange={(e) => setDeckName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSave()}
               autoFocus
-              className="w-full bg-white/[0.03] border border-[#333344] rounded-lg text-[#e8e8f0] px-3 py-2 text-sm focus:outline-none focus:border-[#c9a84c] placeholder:text-[#6a6a88] mb-4"
+              className="w-full bg-black/[0.03] border border-border rounded-lg text-text px-3 py-2 text-sm focus:outline-none focus:border-[#c9a84c] placeholder:text-text-muted mb-4"
             />
             <div className="flex gap-2 justify-end">
-              <button onClick={() => setSaveModalOpen(false)} className="px-3 py-2 rounded-lg text-sm text-[#a0a0b8] hover:text-[#e8e8f0] transition-colors">Cancel</button>
-              <button onClick={handleSave} disabled={!deckName.trim()} className="px-4 py-2 rounded-lg bg-[#52c272]/15 border border-[#52c272]/20 text-[#52c272] text-sm font-medium hover:bg-[#52c272]/25 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">Save</button>
+              <button onClick={() => setSaveModalOpen(false)} className="px-3 py-2 rounded-lg text-sm text-text-secondary hover:text-text transition-colors">Cancel</button>
+              <button onClick={handleSave} disabled={!deckName.trim()} className="px-4 py-2 rounded-lg bg-[#52c272]/15 border border-[#52c272]/20 text-success text-sm font-medium hover:bg-[#52c272]/25 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">Save</button>
             </div>
           </div>
         </div>
@@ -455,24 +455,24 @@ export default function DeckBuilderView() {
       {/* Load Modal */}
       {loadModalOpen && (
         <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setLoadModalOpen(false)}>
-          <div className="rounded-2xl border border-white/10 bg-[#1a1a24]/98 p-6 w-full max-w-sm shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-sm font-semibold text-[#e8e8f0] mb-4">Load Deck</h3>
+          <div className="rounded-2xl border border-white/10 bg-card p-6 w-full max-w-sm shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-sm font-semibold text-text mb-4">Load Deck</h3>
             {savedDecks.length === 0 ? (
-              <p className="text-sm text-[#6a6a88] text-center py-6">No saved decks yet.</p>
+              <p className="text-sm text-text-muted text-center py-6">No saved decks yet.</p>
             ) : (
               <div className="space-y-1 max-h-64 overflow-y-auto mb-4">
                 {savedDecks.map((deck) => (
-                  <div key={deck.id} className="flex items-center group hover:bg-white/[0.03] rounded-lg transition-colors">
+                  <div key={deck.id} className="flex items-center group hover:bg-black/[0.03] rounded-lg transition-colors">
                     <button
                       onClick={() => handleLoad(deck.id)}
                       className="flex-1 text-left px-3 py-2.5"
                     >
-                      <span className="block text-sm text-[#e8e8f0] group-hover:text-[#e8c86a] transition-colors">{deck.name}</span>
-                      <span className="text-[10px] text-[#6a6a88]">{deck.updatedAt}</span>
+                      <span className="block text-sm text-text group-hover:text-primary transition-colors">{deck.name}</span>
+                      <span className="text-[10px] text-text-muted">{deck.updatedAt}</span>
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleDeleteDeck(deck.id, deck.name); }}
-                      className="px-2 py-1.5 text-[#6a6a88] hover:text-[#e05252] opacity-0 group-hover:opacity-100 transition-all shrink-0"
+                      className="px-2 py-1.5 text-text-muted hover:text-danger opacity-0 group-hover:opacity-100 transition-all shrink-0"
                       aria-label="Delete deck"
                     >
                       <Trash2 size={14} />
@@ -482,7 +482,7 @@ export default function DeckBuilderView() {
               </div>
             )}
             <div className="flex justify-end">
-              <button onClick={() => setLoadModalOpen(false)} className="px-4 py-2 rounded-lg text-sm text-[#a0a0b8] hover:text-[#e8e8f0] transition-colors">Close</button>
+              <button onClick={() => setLoadModalOpen(false)} className="px-4 py-2 rounded-lg text-sm text-text-secondary hover:text-text transition-colors">Close</button>
             </div>
           </div>
         </div>
