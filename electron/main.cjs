@@ -195,7 +195,8 @@ function setupIPC() {
       return;
     }
     const { id, resolve } = scryfallQueue.shift();
-    const request = net.request(`https://api.scryfall.com/cards/${encodeURIComponent(id)}`);
+    const url = `https://api.scryfall.com/cards/${encodeURIComponent(id)}`;
+    const request = net.request(url);
     request.on('response', (response) => {
       let body = '';
       response.on('data', (chunk) => { body += chunk.toString(); });
@@ -204,14 +205,17 @@ function setupIPC() {
           if (response.statusCode === 200) {
             resolve({ ok: true, data: JSON.parse(body) });
           } else {
+            console.error(`[Scryfall] HTTP ${response.statusCode} for ${id}`);
             resolve({ ok: false, error: `HTTP ${response.statusCode}` });
           }
         } catch (err) {
+          console.error(`[Scryfall] parse error for ${id}:`, err.message);
           resolve({ ok: false, error: err.message });
         }
       });
     });
     request.on('error', (err) => {
+      console.error(`[Scryfall] network error for ${id}:`, err.message);
       resolve({ ok: false, error: err.message });
     });
     request.end();
