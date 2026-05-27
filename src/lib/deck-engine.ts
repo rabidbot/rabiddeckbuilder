@@ -473,13 +473,19 @@ export function buildOptimalDeck(
   while (cardIds.length < 99 && safety < 260) {
     safety++;
     const profile = buildDeckProfile(entriesInDeck, cmdAnalysis, getRoles);
-    const remaining = valid.filter((entry) => {
-      return !selectedKeys.has(getDeckCardKey(entry.scryfallData));
-    });
-    if (!remaining.length) break;
+
+    // Walk pre-sorted valid array, taking top 250 unselected candidates
+    const candidates: CollectionEntry[] = [];
+    for (const entry of valid) {
+      if (!selectedKeys.has(getDeckCardKey(entry.scryfallData))) {
+        candidates.push(entry);
+        if (candidates.length >= 250) break;
+      }
+    }
+    if (!candidates.length) break;
 
     let best: { entry: CollectionEntry; score: number; role: string; reason: string } | null = null;
-    for (const entry of remaining) {
+    for (const entry of candidates) {
       const tags = getRoles(entry);
       const scored = tags.land
         ? (profile.lands < blueprint.lands + (cmdAnalysis.ci.length >= 4 ? 1 : 0)
