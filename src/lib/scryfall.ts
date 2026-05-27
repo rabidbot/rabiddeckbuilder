@@ -6,8 +6,6 @@ let requestCount = 0;
 const MAX_PER_SECOND = 8;
 const REQUEST_DELAY = 120;
 
-let firstFetchFailLogged = false;
-
 async function rateLimit() {
   requestCount++;
   if (requestCount > MAX_PER_SECOND) {
@@ -17,18 +15,6 @@ async function rateLimit() {
 }
 
 export async function fetchCardById(id: string): Promise<ScryfallCard | null> {
-  if (window.electronAPI?.isElectron) {
-    const result = await window.electronAPI.scryfall.fetchCard(id);
-    if (!result.ok || !result.data) {
-      if (!firstFetchFailLogged) {
-        console.warn('[fetchCardById] IPC failed — result:', JSON.stringify(result));
-        firstFetchFailLogged = true;
-      }
-      return null;
-    }
-    return result.data as ScryfallCard;
-  }
-
   await rateLimit();
   try {
     const resp = await fetch(`${SCRYFALL_API}/cards/${encodeURIComponent(id)}`);
