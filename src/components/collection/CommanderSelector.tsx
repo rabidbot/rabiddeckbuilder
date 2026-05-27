@@ -38,6 +38,14 @@ export default function CommanderSelector() {
   }, [legendaries, search]);
 
   useEffect(() => {
+    if (open) {
+      requestAnimationFrame(() => {
+        inputRef.current?.focus();
+      });
+    }
+  }, [open]);
+
+  useEffect(() => {
     setHighlightIdx(0);
   }, [search]);
 
@@ -93,7 +101,7 @@ export default function CommanderSelector() {
         </span>
 
         <button
-          onClick={() => { setOpen(!open); if (!open) setTimeout(() => inputRef.current?.focus(), 50); }}
+          onClick={() => setOpen(!open)}
           className="flex-1 min-w-[200px] flex items-center justify-between bg-black/[0.03] border border-border-light rounded-lg text-text px-3 py-2 text-sm hover:border-[#c9a84c] transition-colors"
         >
           {commander ? (

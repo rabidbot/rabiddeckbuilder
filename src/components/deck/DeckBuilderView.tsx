@@ -232,14 +232,23 @@ export default function DeckBuilderView() {
         })
         .filter(Boolean);
 
+      const deckCardIds = useDeckStore.getState().cardIds;
+      const existingNames = new Set(
+        deckCardIds.map(id => collection.find(e => e.scryfallData.id === id)?.scryfallData.name?.toLowerCase() ?? ''),
+      );
+
       let imported = 0;
       for (const name of names) {
+        const nameLower = name.toLowerCase();
+        if (existingNames.has(nameLower)) continue;
+
         const found = collection.find(
-          (e) => e.scryfallData.name?.toLowerCase() === name.toLowerCase(),
+          (e) => e.scryfallData.name?.toLowerCase() === nameLower,
         );
         if (found) {
           const { addCard } = useDeckStore.getState();
           addCard(found.scryfallData.id, { role: 'Imported', reason: `Imported: ${name}` });
+          existingNames.add(nameLower);
           imported++;
         }
       }

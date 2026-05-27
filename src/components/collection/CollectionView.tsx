@@ -348,6 +348,18 @@ function CardDetailPanel({
   const addToast = useToastStore((s) => s.addToast);
   const inDeck = cardIds.includes(card.id);
   const commander = useCollectionStore((c) => c.commander);
+  const collection = useCollectionStore((c) => c.collection);
+
+  const existingNames = useMemo(
+    () => new Set(cardIds.map(id => collection.find(e => e.scryfallData.id === id)?.scryfallData.name ?? id)),
+    [cardIds, collection],
+  );
+
+  const isCommanderDuplicate = commander
+    ? card.oracle_id === commander.oracle_id && card.id !== commander.id
+    : false;
+
+  const isNameDuplicate = !inDeck && existingNames.has(card.name);
 
   const scoreItems = [
     { key: 'power', label: 'Power', val: s.power, reasons: s.reasons?.power || [], color: '#e08052' },
@@ -464,13 +476,17 @@ function CardDetailPanel({
             >
               Remove from Deck
             </button>
+          ) : isCommanderDuplicate ? (
+            <span className="flex-1 px-3 py-2 rounded-lg bg-primary/10 border border-primary/20 text-primary text-xs font-medium text-center">
+              Commander
+            </span>
           ) : (
             <button
               onClick={() => { addCard(card.id, { role: 'Manual', reason: 'Added from collection' }); addToast(`Added ${card.name}`, 'success'); }}
-              disabled={!s.valid || cardIds.length >= 99}
+              disabled={!s.valid || cardIds.length >= 99 || isNameDuplicate}
               className="flex-1 px-3 py-2 rounded-lg bg-success/10 border border-success/20 text-success text-xs font-medium hover:bg-[#52c272]/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
-              Add to Deck
+              {isNameDuplicate ? 'In Deck' : 'Add to Deck'}
             </button>
           )}
         </div>
