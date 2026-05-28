@@ -130,7 +130,7 @@ export default function DeckWorkspace() {
           <div className="sticky top-0 flex items-center justify-between px-4 py-3 bg-card-elevated border-b border-border/50 z-10">
             <h3 className="text-sm font-semibold text-text">Deck List</h3>
             <span className="text-sm text-text-secondary">
-              <strong className="text-primary">{deckEntries.length}</strong>/99
+              <strong className="text-primary">{cardIds.length}</strong>/99
             </span>
           </div>
           <div className="flex-1 overflow-y-auto">

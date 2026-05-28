@@ -164,7 +164,7 @@ export default function ImportView() {
 
         {!importing && (
           <div
-            className="relative border-2 border-dashed border-border-light rounded-lg p-10 cursor-pointer transition-colors hover:border-primary hover:bg-primary/5 bg-black/[0.02] mb-6"
+            className="relative border-2 border-dashed border-border-light rounded-lg p-10 cursor-pointer transition-colors hover:border-primary hover:bg-primary/5 bg-white/[0.03] mb-6"
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
               e.preventDefault();
@@ -211,7 +211,7 @@ export default function ImportView() {
           </div>
         )}
 
-        <div className="bg-black/[0.03] border border-border rounded-lg p-4 text-left text-xs text-text-muted">
+        <div className="bg-white/[0.04] border border-border rounded-lg p-4 text-left text-xs text-text-muted">
           <strong className="text-text-secondary block mb-2">Expected Columns:</strong>
           <code className="text-primary font-mono">
             Name, Set code, Set name, Collector number, Foil, Rarity, Quantity, ManaBox ID,

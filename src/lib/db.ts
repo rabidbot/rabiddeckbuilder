@@ -98,8 +98,9 @@ export async function insertCollectionEntry(cardId: string, data: {
   purchasePrice: number;
   csvRow: Record<string, string>;
 }): Promise<void> {
+  await dbRun('DELETE FROM collection WHERE card_id = ?', [cardId]);
   await dbRun(
-    `INSERT OR REPLACE INTO collection
+    `INSERT INTO collection
       (card_id, quantity, set_code, collector_number, foil, condition, language, purchase_price, csv_data)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [

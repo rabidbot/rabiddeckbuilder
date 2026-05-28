@@ -66,7 +66,7 @@ export default function CardPool() {
             placeholder="Search collection..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-black/[0.03] border border-border rounded-lg text-text pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-primary placeholder:text-text-muted"
+            className="w-full bg-white/[0.04] border border-border rounded-lg text-text pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-primary placeholder:text-text-muted"
           />
         </div>
 
@@ -74,7 +74,7 @@ export default function CardPool() {
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
-            className="flex-1 bg-black/[0.03] border border-border rounded-md text-text-secondary px-1.5 py-1 text-[10px] focus:outline-none focus:border-primary"
+            className="flex-1 bg-white/[0.04] border border-border rounded-md text-text-secondary px-1.5 py-1 text-[10px] focus:outline-none focus:border-primary"
           >
             <option value="">All Types</option>
             <option value="Creature">Creature</option>
@@ -89,7 +89,7 @@ export default function CardPool() {
           <select
             value={filterColor}
             onChange={(e) => setFilterColor(e.target.value)}
-            className="flex-1 bg-black/[0.03] border border-border rounded-md text-text-secondary px-1.5 py-1 text-[10px] focus:outline-none focus:border-primary"
+            className="flex-1 bg-white/[0.04] border border-border rounded-md text-text-secondary px-1.5 py-1 text-[10px] focus:outline-none focus:border-primary"
           >
             <option value="">All Colors</option>
             <option value="W">W</option>
@@ -104,7 +104,7 @@ export default function CardPool() {
           <select
             value={filterScore}
             onChange={(e) => setFilterScore(e.target.value)}
-            className="flex-1 bg-black/[0.03] border border-border rounded-md text-text-secondary px-1.5 py-1 text-[10px] focus:outline-none focus:border-primary"
+            className="flex-1 bg-white/[0.04] border border-border rounded-md text-text-secondary px-1.5 py-1 text-[10px] focus:outline-none focus:border-primary"
           >
             <option value="">All Scores</option>
             <option value="80">80+</option>

@@ -225,7 +225,7 @@ export default function DamageTrackerView() {
                   className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                     game.startingLife === n
                       ? 'bg-primary/20 border border-primary/30 text-primary'
-                      : 'bg-black/[0.02] border border-border/50 text-text-secondary hover:bg-black/[0.04]'
+                      : 'bg-white/[0.03] border border-border/50 text-text-secondary hover:bg-white/[0.05]'
                   }`}
                 >
                   {n}
@@ -237,10 +237,10 @@ export default function DamageTrackerView() {
           <div className="space-y-3">
             <input type="text" placeholder="Player name" value={newName}
               onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addPlayer()}
-              className="w-full bg-black/[0.03] border border-border rounded-lg text-text px-3 py-2 text-sm focus:outline-none focus:border-primary placeholder:text-text-muted" />
+              className="w-full bg-white/[0.04] border border-border rounded-lg text-text px-3 py-2 text-sm focus:outline-none focus:border-primary placeholder:text-text-muted" />
             <input type="text" placeholder="Commander name (optional)" value={newCommander}
               onChange={(e) => setNewCommander(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addPlayer()}
-              className="w-full bg-black/[0.03] border border-border rounded-lg text-text px-3 py-2 text-sm focus:outline-none focus:border-primary placeholder:text-text-muted" />
+              className="w-full bg-white/[0.04] border border-border rounded-lg text-text px-3 py-2 text-sm focus:outline-none focus:border-primary placeholder:text-text-muted" />
             <button onClick={addPlayer} disabled={!newName.trim() || game.players.length >= 6}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/15 border border-primary/20 text-primary text-sm font-medium hover:bg-primary/25 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
               <UserPlus size={16} /> Add Player ({game.players.length}/6)
@@ -378,13 +378,13 @@ export default function DamageTrackerView() {
                 <button onClick={() => toggleMonarch(player.id)}
                   className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold transition-colors ${
                     player.isMonarch ? 'bg-primary/20 border border-primary/30 text-primary'
-                    : 'bg-black/[0.02] border border-border/50 text-text-muted hover:text-text-secondary'}`}>
+                    : 'bg-white/[0.03] border border-border/50 text-text-muted hover:text-text-secondary'}`}>
                   <Crown size={12} /> Monarch
                 </button>
                 <button onClick={() => toggleInitiative(player.id)}
                   className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold transition-colors ${
                     player.hasInitiative ? 'bg-info/20 border border-info/30 text-info'
-                    : 'bg-black/[0.02] border border-border/50 text-text-muted hover:text-text-secondary'}`}>
+                    : 'bg-white/[0.03] border border-border/50 text-text-muted hover:text-text-secondary'}`}>
                   <Footprints size={12} /> Initiative
                 </button>
               </div>
@@ -436,12 +436,12 @@ export default function DamageTrackerView() {
                             <div className="flex items-center justify-center gap-1">
                               <button onClick={() => subtractCommanderDamage(attacker.id, defender.id)}
                                 disabled={dmg <= 0}
-                                className="w-5 h-5 rounded-md bg-black/[0.02] border border-border/50 text-text-muted hover:text-danger hover:border-danger/20 text-[10px] flex items-center justify-center disabled:opacity-20 disabled:cursor-not-allowed transition-colors">-</button>
+                                className="w-5 h-5 rounded-md bg-white/[0.03] border border-border/50 text-text-muted hover:text-danger hover:border-danger/20 text-[10px] flex items-center justify-center disabled:opacity-20 disabled:cursor-not-allowed transition-colors">-</button>
                               <span className={`min-w-[24px] text-center font-bold tabular-nums ${dmg >= CMDR_DAMAGE_THRESHOLD ? 'text-danger' : 'text-text'}`}>
                                 {dmg}
                               </span>
                               <button onClick={() => addCommanderDamage(attacker.id, defender.id)}
-                                className="w-5 h-5 rounded-md bg-black/[0.02] border border-border/50 text-text-muted hover:text-success hover:border-success/20 text-[10px] flex items-center justify-center transition-colors">+</button>
+                                className="w-5 h-5 rounded-md bg-white/[0.03] border border-border/50 text-text-muted hover:text-success hover:border-success/20 text-[10px] flex items-center justify-center transition-colors">+</button>
                             </div>
                           </td>
                         );
@@ -463,13 +463,13 @@ export default function DamageTrackerView() {
 
       {/* Add Player (in-game) */}
       {game.players.length < 6 && (
-        <div className="rounded-2xl border border-dashed border-border p-4 flex flex-wrap items-center gap-3 bg-black/[0.01]">
+        <div className="rounded-2xl border border-dashed border-border p-4 flex flex-wrap items-center gap-3 bg-white/[0.02]">
           <input type="text" placeholder="Player name" value={newName}
             onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addPlayer()}
-            className="flex-1 min-w-[140px] bg-black/[0.03] border border-border rounded-lg text-text px-3 py-1.5 text-sm focus:outline-none focus:border-primary placeholder:text-text-muted" />
+            className="flex-1 min-w-[140px] bg-white/[0.04] border border-border rounded-lg text-text px-3 py-1.5 text-sm focus:outline-none focus:border-primary placeholder:text-text-muted" />
           <input type="text" placeholder="Commander name" value={newCommander}
             onChange={(e) => setNewCommander(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addPlayer()}
-            className="flex-1 min-w-[140px] bg-black/[0.03] border border-border rounded-lg text-text px-3 py-1.5 text-sm focus:outline-none focus:border-primary placeholder:text-text-muted" />
+            className="flex-1 min-w-[140px] bg-white/[0.04] border border-border rounded-lg text-text px-3 py-1.5 text-sm focus:outline-none focus:border-primary placeholder:text-text-muted" />
           <button onClick={addPlayer} disabled={!newName.trim()}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/15 text-primary text-sm hover:bg-primary/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">
             <UserPlus size={14} /> Add

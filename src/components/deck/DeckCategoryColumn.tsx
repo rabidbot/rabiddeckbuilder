@@ -39,7 +39,7 @@ function SortableDeckCard({
         {...attributes}
         {...listeners}
         style={style}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-transparent hover:border-primary/15 hover:bg-black/[0.03] cursor-grab active:cursor-grabbing transition-colors touch-none select-none text-xs group"
+        className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-transparent hover:border-primary/15 hover:bg-white/[0.04] cursor-grab active:cursor-grabbing transition-colors touch-none select-none text-xs group"
       >
         <span className="flex-1 truncate text-text">{card.name}</span>
         <span className="text-[10px] text-text-muted font-mono shrink-0">CMC {card.cmc || 0}</span>
@@ -88,7 +88,7 @@ export default function DeckCategoryColumn({ title, entries, onRemove }: DeckCat
       ref={setNodeRef}
       className={`border-b border-border/30 transition-colors ${isOver ? 'bg-primary/10 border-primary/20' : ''}`}
     >
-      <div className="sticky top-0 bg-black/[0.02] px-3 py-2 flex items-center justify-between z-[2] backdrop-blur-sm">
+      <div className="sticky top-0 bg-white/[0.03] px-3 py-2 flex items-center justify-between z-[2] backdrop-blur-sm">
         <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-text-muted">
           {title}
         </span>

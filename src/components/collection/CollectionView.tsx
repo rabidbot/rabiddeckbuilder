@@ -152,14 +152,14 @@ export default function CollectionView() {
             placeholder="Search cards..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-black/[0.03] border border-border rounded-lg text-text px-3 py-2 text-sm focus:outline-none focus:border-[#c9a84c] placeholder:text-text-muted"
+            className="w-full bg-white/[0.04] border border-border rounded-lg text-text px-3 py-2 text-sm focus:outline-none focus:border-primary placeholder:text-text-muted"
           />
         </div>
 
         <select
           value={filterColor}
           onChange={(e) => setFilterColor(e.target.value)}
-          className="bg-black/[0.03] border border-border rounded-lg text-text-secondary px-3 py-2 text-sm focus:outline-none focus:border-[#c9a84c]"
+          className="bg-white/[0.04] border border-border rounded-lg text-text-secondary px-3 py-2 text-sm focus:outline-none focus:border-primary"
         >
           <option value="">All Colors</option>
           <option value="W">White</option>
@@ -174,7 +174,7 @@ export default function CollectionView() {
         <select
           value={filterType}
           onChange={(e) => setFilterType(e.target.value)}
-          className="bg-black/[0.03] border border-border rounded-lg text-text-secondary px-3 py-2 text-sm focus:outline-none focus:border-[#c9a84c]"
+          className="bg-white/[0.04] border border-border rounded-lg text-text-secondary px-3 py-2 text-sm focus:outline-none focus:border-primary"
         >
           <option value="">All Types</option>
           <option value="Creature">Creature</option>
@@ -267,7 +267,7 @@ export default function CollectionView() {
                         >
                           <div
                             className={`flex border-b border-border/30 cursor-pointer transition-colors ${
-                              isSelected ? 'bg-primary/10' : 'hover:bg-black/[0.03]'
+                              isSelected ? 'bg-primary/10' : 'hover:bg-white/[0.04]'
                             }`}
                             onClick={() => setSelectedId(isSelected ? null : card.id)}
                           >
@@ -287,7 +287,7 @@ export default function CollectionView() {
                                 )}
                                 {ci.map((c) => (
                                   <span key={c} className="w-4 h-4 rounded-full border border-black/30 flex items-center justify-center text-[8px] font-bold"
-                                    style={{ background: c==='W'?'#f9f6ee':c==='U'?'#4a90d9':c==='B'?'#8b52a0':c==='R'?'#d94a4a':c==='G'?'#2d8b4a':'#555', color: ['W'].includes(c)?'#333':'#fff' }}>
+                                    style={{ background: c==='W'?'#f9f6ee':c==='U'?'#4a90d9':c==='B'?'#8b52a0':c==='R'?'#d94a4a':c==='G'?'#2d8b4a':'#b0a890', color: ['W'].includes(c)?'#333':'#fff' }}>
                                     {c}
                                   </span>
                                 ))}
@@ -306,7 +306,7 @@ export default function CollectionView() {
                             </div>
                             <div style={{ width: '10%' }} className="px-3 py-2">
                               {commanderCI && !s.valid && (
-                                <span className="text-[10px] text-danger bg-[#e05252]/10 px-2 py-0.5 rounded-full">
+                                <span className="text-[10px] text-danger bg-danger/10 px-2 py-0.5 rounded-full">
                                   Invalid
                                 </span>
                               )}
@@ -362,11 +362,11 @@ function CardDetailPanel({
   const isNameDuplicate = !inDeck && existingNames.has(card.name);
 
   const scoreItems = [
-    { key: 'power', label: 'Power', val: s.power, reasons: s.reasons?.power || [], color: '#e08052' },
-    { key: 'cmdSynergy', label: 'Synergy', val: s.cmdSynergy, reasons: s.reasons?.cmdSynergy || [], color: '#4a90d9' },
-    { key: 'manaEff', label: 'Mana Eff', val: s.manaEff, reasons: s.reasons?.manaEff || [], color: '#52c272' },
-    { key: 'winCon', label: 'Win Con', val: s.winCon, reasons: s.reasons?.winCon || [], color: '#c9a84c' },
-    { key: 'budget', label: 'Budget', val: s.budget, reasons: s.reasons?.budget || [], color: '#9052e0' },
+    { key: 'power', label: 'Power', val: s.power, reasons: s.reasons?.power || [], color: 'var(--color-orange)' },
+    { key: 'cmdSynergy', label: 'Synergy', val: s.cmdSynergy, reasons: s.reasons?.cmdSynergy || [], color: 'var(--color-info)' },
+    { key: 'manaEff', label: 'Mana Eff', val: s.manaEff, reasons: s.reasons?.manaEff || [], color: 'var(--color-success)' },
+    { key: 'winCon', label: 'Win Con', val: s.winCon, reasons: s.reasons?.winCon || [], color: 'var(--color-primary)' },
+    { key: 'budget', label: 'Budget', val: s.budget, reasons: s.reasons?.budget || [], color: 'var(--color-purple)' },
   ];
 
   return (
@@ -432,7 +432,7 @@ function CardDetailPanel({
                   {item.val}/10
                 </span>
               </div>
-              <div className="h-1.5 rounded-full bg-black/[0.04] overflow-hidden mb-2">
+              <div className="h-1.5 rounded-full bg-white/[0.05] overflow-hidden mb-2">
                 <div
                   className="h-full rounded-full transition-all"
                   style={{ width: `${item.val * 10}%`, background: item.color }}
@@ -484,7 +484,7 @@ function CardDetailPanel({
             <button
               onClick={() => { addCard(card.id, { role: 'Manual', reason: 'Added from collection' }); addToast(`Added ${card.name}`, 'success'); }}
               disabled={!s.valid || cardIds.length >= 99 || isNameDuplicate}
-              className="flex-1 px-3 py-2 rounded-lg bg-success/10 border border-success/20 text-success text-xs font-medium hover:bg-[#52c272]/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              className="flex-1 px-3 py-2 rounded-lg bg-success/10 border border-success/20 text-success text-xs font-medium hover:bg-success/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
               {isNameDuplicate ? 'In Deck' : 'Add to Deck'}
             </button>

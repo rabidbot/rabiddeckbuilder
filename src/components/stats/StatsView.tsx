@@ -225,7 +225,7 @@ export default function StatsView() {
               return (
                 <div key={b.label} className="flex items-center gap-3">
                   <span className="w-14 text-right text-[10px] text-text-secondary">{b.label}</span>
-                  <div className="flex-1 h-3 rounded-full bg-black/[0.04] overflow-hidden">
+                  <div className="flex-1 h-3 rounded-full bg-white/[0.05] overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all"
                       style={{ width: `${pct}%`, background: color }}
@@ -251,7 +251,7 @@ export default function StatsView() {
                 <span className="text-[10px] uppercase tracking-[0.08em] text-text-muted block mb-2">Themes</span>
                 <div className="flex flex-wrap gap-1.5">
                   {cmdAnalysis.themes.map((t) => (
-                    <span key={t} className="px-2 py-1 rounded-full text-[11px] border border-primary/15 bg-black/[0.03] text-text-secondary capitalize">
+                    <span key={t} className="px-2 py-1 rounded-full text-[11px] border border-primary/15 bg-white/[0.04] text-text-secondary capitalize">
                       {t}
                     </span>
                   ))}
@@ -265,7 +265,7 @@ export default function StatsView() {
                 <span className="text-[10px] uppercase tracking-[0.08em] text-text-muted block mb-2">Triggers</span>
                 <div className="flex flex-wrap gap-1.5">
                   {cmdAnalysis.wants.map((w) => (
-                    <span key={w} className="px-2 py-1 rounded-full text-[11px] border border-border/50 bg-black/[0.02] text-text-secondary capitalize">
+                    <span key={w} className="px-2 py-1 rounded-full text-[11px] border border-border/50 bg-white/[0.03] text-text-secondary capitalize">
                       {w}
                     </span>
                   ))}

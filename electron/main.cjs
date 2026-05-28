@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, net } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, dialog, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
@@ -9,6 +9,7 @@ let mainWindow = null;
 let db = null;
 
 app.whenReady().then(async () => {
+  Menu.setApplicationMenu(null);
   const { default: initSqlJs } = require('sql.js');
   const dbPath = path.join(app.getPath('userData'), 'edh-deckbuilder.db');
 
@@ -86,7 +87,7 @@ function openWindow(port) {
     minWidth: 1024,
     minHeight: 700,
     title: 'EDH Deck Builder',
-    backgroundColor: '#faf7f2',
+      backgroundColor: '#000000',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,

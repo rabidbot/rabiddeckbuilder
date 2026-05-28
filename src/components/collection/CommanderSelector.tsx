@@ -102,7 +102,7 @@ export default function CommanderSelector() {
 
         <button
           onClick={() => setOpen(!open)}
-          className="flex-1 min-w-[200px] flex items-center justify-between bg-black/[0.03] border border-border-light rounded-lg text-text px-3 py-2 text-sm hover:border-[#c9a84c] transition-colors"
+          className="flex-1 min-w-[200px] flex items-center justify-between bg-white/[0.04] border border-border-light rounded-lg text-text px-3 py-2 text-sm hover:border-primary transition-colors"
         >
           {commander ? (
             <div className="flex items-center gap-3">
@@ -138,7 +138,7 @@ export default function CommanderSelector() {
                   placeholder="Search commanders..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full bg-black/[0.03] border border-border rounded-lg text-text pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-[#c9a84c] placeholder:text-text-muted"
+                  className="w-full bg-white/[0.04] border border-border rounded-lg text-text pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:border-primary placeholder:text-text-muted"
                 />
               </div>
             </div>
