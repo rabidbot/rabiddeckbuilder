@@ -40,6 +40,23 @@ export function analyzeCommander(cmd: ScryfallCard): CommanderAnalysis {
     if (hasTribalSupport) themes.push('tribal');
   }
 
+  let tribalPayoff = false;
+  let tribalSubtype: string | null = null;
+  if (subtypes.length) {
+    for (const sub of subtypes) {
+      const s = sub.toLowerCase();
+      const tribalPattern = new RegExp(
+        `(whenever|when|other ${s}|${s}.*you control|${s} spells|${s} creature|choose a ${s}|${s} permanent|${s} card|reveal.*${s}|${s}.*get|for each ${s})|${s}.*has`,
+        'i',
+      );
+      if (tribalPattern.test(oracle)) {
+        tribalPayoff = true;
+        tribalSubtype = sub;
+        break;
+      }
+    }
+  }
+
   if (!themes.length) themes.push('goodstuff');
 
   const wants: string[] = [];
@@ -60,6 +77,8 @@ export function analyzeCommander(cmd: ScryfallCard): CommanderAnalysis {
     wants: [...new Set(wants)],
     ci,
     subtypes,
+    tribalPayoff,
+    tribalSubtype,
     oracle,
     typeLine,
     keywords,

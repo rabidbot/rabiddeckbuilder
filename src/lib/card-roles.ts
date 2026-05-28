@@ -94,7 +94,7 @@ export function detectCardRoles(
       !/search your library for (?:a|up to).*(?:basic land|land card|plains|island|swamp|mountain|forest)/i.test(oracleLower);
 
     roles.recursion =
-      /return target.*graveyard|from your graveyard to your hand|reanimate|unearth|flashback|escape|disturb|recover/i.test(oracleLower);
+      /return target.*graveyard|from your graveyard to your hand|reanimate|unearth|flashback|escape|disturb|recover|mill \d|discard a card.*draw|dredge|surveil/i.test(oracleLower);
 
     roles.finisher =
       /you win the game|each opponent loses|deal.*each opponent|extra turn|extra combat|double.*damage|overrun|craterhoof|triumph of the hordes|torment of hailfire/i.test(oracleLower);

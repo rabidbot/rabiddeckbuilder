@@ -77,6 +77,11 @@ export function getDeckBlueprint(cmdAnalysis: CommanderAnalysis, powerLevel: Pow
   if (cmdAnalysis.themes.includes('tokens') || cmdAnalysis.themes.includes('damage')) finishers += 1;
   synergy += Math.min(8, cmdAnalysis.themes.length * 2);
 
+  if (cmdAnalysis.tribalPayoff) {
+    synergy += 4;
+    finishers += 1;
+  }
+
   // Clamp
   lands = Math.max(28, Math.min(40, lands));
   ramp = Math.max(6, Math.min(16, ramp));

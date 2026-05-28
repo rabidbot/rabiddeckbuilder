@@ -78,6 +78,8 @@ export interface CommanderAnalysis {
   wants: string[];
   ci: string[];
   subtypes: string[];
+  tribalPayoff: boolean;
+  tribalSubtype: string | null;
   oracle: string;
   typeLine: string;
   keywords: string[];

@@ -293,6 +293,14 @@ function scoreCandidateForDeck(
   score += redundancy.bonus * 1.8;
   if (redundancy.reasons.length) reasons.push(redundancy.reasons[0]);
 
+  if (cmdAnalysis.tribalPayoff && cmdAnalysis.tribalSubtype) {
+    const cardTypeLine = getTypeLine(card).toLowerCase();
+    if (cardTypeLine.includes(cmdAnalysis.tribalSubtype.toLowerCase())) {
+      score += 30;
+      reasons.push(`${cmdAnalysis.tribalSubtype} tribal payoff`);
+    }
+  }
+
   if (tags.synergy) {
     const themeBonus = 6 + tags.themeHits.length * 4 + Math.max(0, blueprint.synergy - profile.synergy) * 1.5;
     score += themeBonus;
@@ -349,8 +357,8 @@ function identifyWinConditions(
   if (overrun.length && tokenMakers.length >= 2 && (cmdAnalysis.themes.includes('tokens') || cmdAnalysis.themes.includes('tribal')))
     winSignals.push({ type: 'go wide', cards: [...overrun, ...tokenMakers].slice(0, 4) });
 
-  const graveyardBombs = top((e) => /return.*graveyard.*battlefield|reanimate|whenever a creature dies|sacrifice a creature/i.test(getOracleText(e.scryfallData)), 4);
-  if (graveyardBombs.length >= 2 && (cmdAnalysis.themes.includes('graveyard') || cmdAnalysis.themes.includes('sacrifice')))
+  const graveyardBombs = top((e) => /return.*graveyard.*battlefield|reanimate|whenever a creature dies|sacrifice a creature|mill \d|discard a card.*draw|dredge|surveil|creatures you control get \+.*for each creature card in|number of creature cards in your graveyard/i.test(getOracleText(e.scryfallData)), 4);
+  if (graveyardBombs.length >= 2 && (cmdAnalysis.themes.includes('graveyard') || cmdAnalysis.themes.includes('sacrifice') || cmdAnalysis.wants.includes('dies')))
     winSignals.push({ type: 'graveyard engine', cards: graveyardBombs });
 
   const commanderKill = top((e) => /double strike|unblockable|equipment|aura|attach|combat damage/i.test(`${getTypeLine(e.scryfallData)} ${getOracleText(e.scryfallData)}`), 4);
