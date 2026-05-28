@@ -456,8 +456,15 @@ export function buildOptimalDeck(
   };
 
   const singletonPool = new Map<string, CollectionEntry>();
+  const DEBUG_NAMES = new Set(['jolted awake', 'stratosoarer', 'shimmercreep', 'dawn-blessed pennant']);
   for (const entry of augmentedCollection) {
     const card = entry.scryfallData;
+    if (card && DEBUG_NAMES.has((card.name || '').toLowerCase())) {
+      console.log('[DEBUG]', card.name,
+        'oracle_id:', card.oracle_id,
+        'canRunMultipleCopies:', canRunMultipleCopies(card),
+        'deckKey:', getDeckCardKey(card));
+    }
     if (!card || entry.scores.valid === false || card.id === commander.scryfallData.id) continue;
     const key = getDeckCardKey(card);
     const prev = singletonPool.get(key);
