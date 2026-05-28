@@ -47,7 +47,7 @@ export const useDeckStore = create<DeckState>((set, get) => ({
     const { cardIds, selectedKeys, selectedNames } = get();
     const key = getDeckCardKey(card as import('../lib/types').ScryfallCard);
     const nameLower = (card.name || '').toLowerCase();
-    if (cardIds.length >= 99 || selectedKeys.includes(key)) return;
+    if (cardIds.length >= 99 || selectedKeys.includes(key) || cardIds.includes(card.id)) return;
     if (!canRunMultipleCopies(card as import('../lib/types').ScryfallCard) && selectedNames.includes(nameLower)) return;
     set((s) => ({
       cardIds: [...s.cardIds, card.id],
@@ -137,7 +137,12 @@ export const useDeckStore = create<DeckState>((set, get) => ({
 
     setTimeout(() => {
       try {
-        const result = buildOptimalDeck(collection, commanderEntry, get().powerLevel);
+        // Deduplicate collection by card.id (handles pre-existing duplicate rows in collection)
+        const idMap = new Map<string, import('../lib/types').CollectionEntry>();
+        for (const e of collection) idMap.set(e.scryfallData.id, e);
+        const dedupedCollection = [...idMap.values()];
+
+        const result = buildOptimalDeck(dedupedCollection, commanderEntry, get().powerLevel);
         const virtualIds = new Set(result.cardIds.filter((id) => id.startsWith('virtual-basic-')));
         const allVirtual = createVirtualBasicLands(analyzeCommander(commander).ci);
         const filteredVirtual = allVirtual.filter((v) => virtualIds.has(v.scryfallData.id));

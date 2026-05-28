@@ -704,7 +704,22 @@ function validateAndRepairDeck(
     if (!entryById.has(entry.scryfallData.id)) entryById.set(entry.scryfallData.id, entry);
   }
 
-  // 0. Dedup by lowercased name (catches DFCs with same name, different oracle_ids)
+  // 0. Literal card.id dedup: drop any second occurrence of the same card.id
+  // This handles duplicate CSV rows where the same card was imported twice.
+  // Use a Map so that later entries (higher composite) replace earlier ones.
+  const seenCardIds = new Map<string, { id: string; composite: number }>();
+  for (const id of cardIds) {
+    const entry = entryById.get(id);
+    if (!entry) continue;
+    const prev = seenCardIds.get(id);
+    if (!prev || entry.scores.composite > prev.composite) {
+      seenCardIds.set(id, { id, composite: entry.scores.composite });
+    }
+  }
+  cardIds = cardIds.filter(id => seenCardIds.has(id));
+  console.log('[idDedup] after literal card.id dedup:', cardIds.length);
+
+  // 1. Dedup by lowercased name (catches DFCs with same name, different oracle_ids)
   const seenNames = new Map<string, { id: string; composite: number }>();
   for (const id of cardIds) {
     const entry = entryById.get(id);
