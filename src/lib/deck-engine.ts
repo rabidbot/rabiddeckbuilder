@@ -460,6 +460,7 @@ export function buildOptimalDeck(
 ): { cardIds: string[]; roles: Record<string, DeckRole>; gamePlan: string } {
   const cardIds: string[] = [];
   const selectedKeys = new Set<string>();
+  const selectedNames = new Set<string>();
   const roles: Record<string, DeckRole> = {};
 
   const cmdAnalysis = analyzeCommander(commander.scryfallData);
@@ -501,6 +502,11 @@ export function buildOptimalDeck(
     const card = entry.scryfallData;
     const key = getDeckCardKey(card);
     if (selectedKeys.has(key) || cardIds.includes(card.id)) return false;
+    if (!canRunMultipleCopies(card)) {
+      const nameLower = (card.name || '').toLowerCase();
+      if (selectedNames.has(nameLower)) return false;
+      selectedNames.add(nameLower);
+    }
     cardIds.push(card.id);
     selectedKeys.add(key);
     roles[card.id] = { role, reason };
@@ -728,7 +734,7 @@ function validateAndRepairDeck(
   const nameDedupedIds = new Set(Array.from(seenNames.values()).map(v => v.id));
   cardIds = cardIds.filter(id => {
     const entry = entryById.get(id);
-    if (!entry) return true;
+    if (!entry) return false;
     if (canRunMultipleCopies(entry.scryfallData)) return true;
     return nameDedupedIds.has(id);
   });
@@ -757,7 +763,7 @@ function validateAndRepairDeck(
   const dedupedIds = new Set(Array.from(seenKeys.values()).map(v => v.id));
   let repairedIds = cardIds.filter(id => {
     const entry = entryById.get(id);
-    if (!entry) return true;
+    if (!entry) return false;
     if (canRunMultipleCopies(entry.scryfallData)) return true;
     return dedupedIds.has(id);
   });
@@ -766,7 +772,7 @@ function validateAndRepairDeck(
   const cmdCI = new Set(getColorIdentity(commander).map(c => c.toUpperCase()));
   repairedIds = repairedIds.filter(id => {
     const entry = entryById.get(id);
-    if (!entry) return true;
+    if (!entry) return false;
     const cardCI = getColorIdentity(entry.scryfallData).map(c => c.toUpperCase());
     if (cardCI.length === 0 || cardCI.every(c => cmdCI.has(c))) return true;
     violations.push({ cardId: id, type: 'color_identity', message: `${entry.scryfallData.name} outside commander color identity`, affectedCardIds: [id] });
