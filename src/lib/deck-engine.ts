@@ -478,15 +478,7 @@ export function buildOptimalDeck(
   };
 
   const singletonPool = new Map<string, CollectionEntry>();
-  const DEBUG_NAMES = new Set(['jolted awake', 'stratosoarer', 'shimmercreep', 'dawn-blessed pennant', 'eclipsed realms']);
   for (const entry of augmentedCollection) {
-    const card = entry.scryfallData;
-    if (card && DEBUG_NAMES.has((card.name || '').toLowerCase())) {
-      console.log('[DEBUG]', card.name,
-        'oracle_id:', card.oracle_id,
-        'canRunMultipleCopies:', canRunMultipleCopies(card),
-        'deckKey:', getDeckCardKey(card));
-    }
     if (!card || entry.scores.valid === false || card.id === commander.scryfallData.id) continue;
     const key = getDeckCardKey(card);
     const prev = singletonPool.get(key);
@@ -767,6 +759,24 @@ function validateAndRepairDeck(
     if (canRunMultipleCopies(entry.scryfallData)) return true;
     return dedupedIds.has(id);
   });
+
+  // 1.5 Flat dedup: remove any literal duplicate IDs (same card.id appearing twice)
+  // This catches duplicates that slip through name/key dedup when the same ID
+  // appears multiple times in cardIds (e.g. from duplicate CSV import rows).
+  {
+    const seenIds = new Set<string>();
+    repairedIds = repairedIds.filter(id => {
+      const entry = entryById.get(id);
+      if (!entry) return false;
+      if (canRunMultipleCopies(entry.scryfallData)) return true;
+      if (seenIds.has(id)) {
+        violations.push({ cardId: id, type: 'duplicate', message: `Removed literal duplicate: ${entry.scryfallData.name}`, affectedCardIds: [id] });
+        return false;
+      }
+      seenIds.add(id);
+      return true;
+    });
+  }
 
   // 2. Re-verify color identity against commander
   const cmdCI = new Set(getColorIdentity(commander).map(c => c.toUpperCase()));

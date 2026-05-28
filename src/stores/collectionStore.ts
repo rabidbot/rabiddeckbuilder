@@ -20,9 +20,12 @@ export const useCollectionStore = create<CollectionState>((set, get) => ({
   },
 
   addEntries: (entries) => {
-    set((s) => ({
-      collection: [...s.collection, ...entries],
-    }));
+    set((s) => {
+      const idMap = new Map<string, CollectionEntry>();
+      for (const e of s.collection) idMap.set(e.scryfallData.id, e);
+      for (const e of entries) idMap.set(e.scryfallData.id, e);
+      return { collection: [...idMap.values()] };
+    });
   },
 
   setCommander: (card) => {

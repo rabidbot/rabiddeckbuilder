@@ -142,9 +142,17 @@ export const useDeckStore = create<DeckState>((set, get) => ({
         const allVirtual = createVirtualBasicLands(analyzeCommander(commander).ci);
         const filteredVirtual = allVirtual.filter((v) => virtualIds.has(v.scryfallData.id));
 
+        // Defence-in-depth: flat dedup of literal duplicate IDs
+        const seenIds = new Set<string>();
+        const dedupedCardIds = result.cardIds.filter(id => {
+          if (seenIds.has(id)) return false;
+          seenIds.add(id);
+          return true;
+        });
+
         const newKeys: string[] = [];
         const newNames: string[] = [];
-        for (const id of result.cardIds) {
+        for (const id of dedupedCardIds) {
           const entry = collection.find((e) => e.scryfallData.id === id)
             || filteredVirtual.find((v) => v.scryfallData.id === id);
           if (entry) {
@@ -154,7 +162,7 @@ export const useDeckStore = create<DeckState>((set, get) => ({
         }
 
         set({
-          cardIds: result.cardIds,
+          cardIds: dedupedCardIds,
           selectedKeys: newKeys,
           selectedNames: newNames,
           roles: result.roles,

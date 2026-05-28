@@ -131,12 +131,20 @@ export default function ImportView() {
       }
 
       await dbSave();
-      setCollection(collection);
+
+      // Deduplicate by scryfallData.id (last row wins, matches DB behaviour)
+      const deduped = new Map<string, typeof collection[number]>();
+      for (const entry of collection) {
+        deduped.set(entry.scryfallData.id, entry);
+      }
+      const uniqueEntries = [...deduped.values()];
+
+      setCollection(uniqueEntries);
       setCommander(null);
-      setCollectionCount(collection.length);
-      setStatus(`Done! Loaded ${collection.length} cards.`);
+      setCollectionCount(uniqueEntries.length);
+      setStatus(`Done! Loaded ${uniqueEntries.length} cards.`);
       setProgress(100);
-      addToast(`Loaded ${collection.length} cards`, 'success');
+      addToast(`Loaded ${uniqueEntries.length} cards`, 'success');
       if (skipCount > 0) addToast(`${skipCount} cards skipped`, 'info');
 
       setTimeout(() => {

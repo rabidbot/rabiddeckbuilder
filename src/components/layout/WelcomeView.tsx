@@ -117,12 +117,20 @@ export default function WelcomeView() {
 
       if (controller.signal.aborted) return;
       await dbSave();
-      setCollection(result);
+
+      // Deduplicate by scryfallData.id (last row wins, matches DB behaviour)
+      const deduped = new Map<string, typeof result[number]>();
+      for (const entry of result) {
+        deduped.set(entry.scryfallData.id, entry);
+      }
+      const uniqueEntries = [...deduped.values()];
+      console.log(`[Import] Deduped: ${result.length} → ${uniqueEntries.length} (${result.length - uniqueEntries.length} duplicates removed)`);
+      setCollection(uniqueEntries);
       setCommander(null);
-      setCollectionCount(result.length);
-      setStatus(`Loaded ${result.length} cards`);
+      setCollectionCount(uniqueEntries.length);
+      setStatus(`Loaded ${uniqueEntries.length} cards`);
       setProgress(100);
-      addToast(`Imported ${result.length} cards`, 'success');
+      addToast(`Imported ${uniqueEntries.length} cards`, 'success');
     } catch (err) {
       addToast(`Import failed: ${(err as Error).message}`, 'error');
     } finally {
