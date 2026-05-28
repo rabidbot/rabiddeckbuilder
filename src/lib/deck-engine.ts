@@ -10,6 +10,19 @@ function describeGamePlan(cmdAnalysis: CommanderAnalysis): string {
   return primary.length ? primary.join(' / ') : 'Balanced Goodstuff';
 }
 
+function computePipWeight(entries: CollectionEntry[]): Record<string, number> {
+  const demand: Record<string, number> = { W: 0, U: 0, B: 0, R: 0, G: 0 };
+  for (const entry of entries) {
+    const card = entry.scryfallData;
+    if (isLandCard(card)) continue;
+    const manaCost = getManaCost(card);
+    for (const match of manaCost.matchAll(/\{([WUBRG])\}/g)) {
+      demand[match[1]]++;
+    }
+  }
+  return demand;
+}
+
 function scoreRedundancy(card: CollectionEntry, cmdAnalysis: CommanderAnalysis): { bonus: number; reasons: string[] } {
   const oracle = getOracleText(card.scryfallData).toLowerCase();
   const typeLine = getTypeLine(card.scryfallData).toLowerCase();
@@ -542,33 +555,13 @@ export function buildOptimalDeck(
     .slice(0, Math.max(1, blueprint.protection - 1));
   for (const entry of protectionPool) addEntry(entry, 'Protection', 'Defends commander and key engine pieces');
 
-  const colorDemand = estimateColorDemand(valid, cmdAnalysis);
-
+  // === PHASE 5: Nonland fill (skip lands — actual spells first) ===
   let safety = 0;
-  while (safety < 200 && buildDeckProfile(entriesInDeck, cmdAnalysis, getRoles).lands < blueprint.lands) {
-    safety++;
-    const profile = buildDeckProfile(entriesInDeck, cmdAnalysis, getRoles);
-    const lands = valid.filter((entry) => {
-      const key = getDeckCardKey(entry.scryfallData);
-      return !selectedKeys.has(key) && getRoles(entry).land;
-    });
-    if (!lands.length) break;
-
-    let best: { entry: CollectionEntry; score: number; role: string; reason: string } | null = null;
-    for (const entry of lands) {
-      const scored = scoreLandCandidate(entry, profile, blueprint, cmdAnalysis, colorDemand, getRoles);
-      if (!best || scored.score > best.score) best = { entry, ...scored };
-    }
-    if (!best) break;
-    addEntry(best.entry, best.role, best.reason);
-  }
-
-  safety = 0;
-  while (cardIds.length < 99 && safety < 260) {
+  const nonLandTarget = 99 - blueprint.lands;
+  while (cardIds.length < nonLandTarget && safety < 260) {
     safety++;
     const profile = buildDeckProfile(entriesInDeck, cmdAnalysis, getRoles);
 
-    // Walk pre-sorted valid array, taking top 250 unselected candidates
     const candidates: CollectionEntry[] = [];
     for (const entry of valid) {
       if (!selectedKeys.has(getDeckCardKey(entry.scryfallData))) {
@@ -580,12 +573,8 @@ export function buildOptimalDeck(
 
     let best: { entry: CollectionEntry; score: number; role: string; reason: string } | null = null;
     for (const entry of candidates) {
-      const tags = getRoles(entry);
-      const scored = tags.land
-        ? (profile.lands < blueprint.lands + (cmdAnalysis.ci.length >= 4 ? 1 : 0)
-          ? scoreLandCandidate(entry, profile, blueprint, cmdAnalysis, colorDemand, getRoles)
-          : null)
-        : scoreCandidateForDeck(entry, profile, blueprint, cmdAnalysis, getRoles);
+      if (getRoles(entry).land) continue;
+      const scored = scoreCandidateForDeck(entry, profile, blueprint, cmdAnalysis, getRoles);
       if (scored && (!best || scored.score > best.score)) best = { entry, ...scored };
     }
 
@@ -593,6 +582,86 @@ export function buildOptimalDeck(
     addEntry(best.entry, best.role, best.reason);
   }
 
+  // === PHASE 6: Compute pip-weight from actual selected nonland cards ===
+  const pipWeight = computePipWeight(entriesInDeck);
+  for (const c of cmdAnalysis.ci) {
+    if (!pipWeight[c] || pipWeight[c] === 0) pipWeight[c] = 1;
+  }
+  console.log('[LandPhase] pip-weight:', JSON.stringify(pipWeight));
+
+  // === PHASE 7: Nonbasic lands — prioritize by number of deck colors produced ===
+  const cmdCiSet = new Set(cmdAnalysis.ci.map(c => c.toUpperCase()));
+  const nonbasics = valid.filter((entry) => {
+    const key = getDeckCardKey(entry.scryfallData);
+    return !selectedKeys.has(key)
+      && getRoles(entry).land
+      && !isBasicLandCard(entry.scryfallData);
+  });
+  nonbasics.sort((a, b) => {
+    const aColors = getRoles(a).producedColors.filter(c => cmdCiSet.has(c)).length;
+    const bColors = getRoles(b).producedColors.filter(c => cmdCiSet.has(c)).length;
+    if (bColors !== aColors) return bColors - aColors;
+    return b.scores.composite - a.scores.composite;
+  });
+  const nbMax = Math.floor(blueprint.lands * 0.6);
+  for (const entry of nonbasics.slice(0, nbMax)) {
+    addEntry(entry, 'Mana Base', `Nonbasic fixing (${getRoles(entry).producedColors.filter(c => cmdCiSet.has(c)).length} colors)`);
+  }
+
+  // === PHASE 8: Fill remaining land slots with basics proportionally ===
+  let landProfile = buildDeckProfile(entriesInDeck, cmdAnalysis, getRoles);
+  const remainingLands = blueprint.lands - landProfile.lands;
+  if (remainingLands > 0 && cmdAnalysis.ci.length > 0) {
+    // Proportional allocation
+    const totalPips = Object.values(pipWeight).reduce((s, v) => s + v, 0);
+    const alloc: Record<string, number> = {};
+    for (const c of cmdAnalysis.ci) {
+      alloc[c] = Math.max(1, Math.round((pipWeight[c] / totalPips) * remainingLands));
+    }
+    // Adjust to fit remaining exactly
+    let sum = Object.values(alloc).reduce((s, v) => s + v, 0);
+    while (sum > remainingLands) {
+      const sorted = Object.entries(alloc).sort(([, a], [, b]) => b - a);
+      const [maxColor] = sorted[0];
+      if (alloc[maxColor] > 1) { alloc[maxColor]--; sum--; }
+      else break;
+    }
+    while (sum < remainingLands) {
+      const sorted = Object.entries(pipWeight).sort(([, a], [, b]) => b - a);
+      const [maxColor] = sorted[0];
+      if (alloc[maxColor] !== undefined) { alloc[maxColor]++; sum++; }
+    }
+
+    // Compute sources-per-color for logging
+    const sources: Record<string, number> = {};
+    landProfile = buildDeckProfile(entriesInDeck, cmdAnalysis, getRoles);
+    for (const c of cmdAnalysis.ci) sources[c] = (landProfile.sources[c] || 0) + (alloc[c] || 0);
+    console.log('[LandPhase] sources-per-color:', JSON.stringify(sources));
+
+    // Flag any color below ~0.8 of proportional share
+    for (const c of cmdAnalysis.ci) {
+      const idealShare = totalPips > 0 ? (pipWeight[c] / totalPips) * (blueprint.lands) : 0;
+      if (sources[c] < idealShare * 0.8 && sources[c] > 0) {
+        console.log(`[LandPhase] WARNING: ${c} has ${sources[c]} sources, ideal ~${Math.round(idealShare)}`);
+      }
+    }
+
+    // Add virtual basic lands by allocation
+    for (const c of cmdAnalysis.ci) {
+      const land = BASIC_LAND_MAP[c];
+      if (!land || alloc[c] <= 0) continue;
+      const virtuals = valid.filter(v =>
+        v.scryfallData.id.startsWith('virtual-basic-')
+        && v.scryfallData.name === land.name
+        && !selectedKeys.has(getDeckCardKey(v.scryfallData))
+      );
+      for (let i = 0; i < Math.min(alloc[c], virtuals.length); i++) {
+        addEntry(virtuals[i], 'Mana Base', `Proportional basic source (${c}: ${pipWeight[c]} pips)`);
+      }
+    }
+  }
+
+  // === Backfill ===
   if (cardIds.length < 99) {
     const leftovers = valid
       .filter((entry) => !selectedKeys.has(getDeckCardKey(entry.scryfallData)))
