@@ -479,6 +479,7 @@ export function buildOptimalDeck(
 
   const singletonPool = new Map<string, CollectionEntry>();
   for (const entry of augmentedCollection) {
+    const card = entry.scryfallData;
     if (!card || entry.scores.valid === false || card.id === commander.scryfallData.id) continue;
     const key = getDeckCardKey(card);
     const prev = singletonPool.get(key);
