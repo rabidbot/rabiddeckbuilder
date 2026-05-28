@@ -123,6 +123,13 @@ export interface DeckRole {
   reason: string;
 }
 
+export interface DeckViolation {
+  cardId: string;
+  type: 'color_identity' | 'duplicate' | 'deck_size';
+  message: string;
+  affectedCardIds: string[];
+}
+
 export interface Deck {
   id?: string;
   name: string;

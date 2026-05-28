@@ -604,5 +604,123 @@ export function buildOptimalDeck(
     }
   }
 
-  return { cardIds, roles, gamePlan: describeGamePlan(cmdAnalysis) };
+  const repaired = validateAndRepairDeck(
+    cardIds, entriesInDeck, roles, selectedKeys, valid, commander.scryfallData,
+  );
+  return {
+    cardIds: repaired.cardIds,
+    roles: repaired.roles,
+    gamePlan: describeGamePlan(cmdAnalysis),
+  };
+}
+
+function validateAndRepairDeck(
+  cardIds: string[],
+  entriesInDeck: CollectionEntry[],
+  roles: Record<string, DeckRole>,
+  selectedKeys: Set<string>,
+  valid: CollectionEntry[],
+  commander: import('./types').ScryfallCard,
+): { cardIds: string[]; roles: Record<string, DeckRole>; violations: import('./types').DeckViolation[] } {
+  const violations: import('./types').DeckViolation[] = [];
+  const entryById = new Map<string, CollectionEntry>();
+  for (const entry of [...entriesInDeck, ...valid]) {
+    if (!entryById.has(entry.scryfallData.id)) entryById.set(entry.scryfallData.id, entry);
+  }
+
+  // 1. Dedup by getDeckCardKey, keep highest composite (basic lands exempt)
+  const seenKeys = new Map<string, { id: string; composite: number }>();
+  for (const id of cardIds) {
+    const entry = entryById.get(id);
+    if (!entry) continue;
+    const card = entry.scryfallData;
+    if (canRunMultipleCopies(card)) continue;
+    const key = getDeckCardKey(card);
+    const prev = seenKeys.get(key);
+    if (prev) {
+      if (entry.scores.composite > prev.composite) {
+        seenKeys.set(key, { id, composite: entry.scores.composite });
+        violations.push({ cardId: prev.id, type: 'duplicate', message: `Duplicate of ${card.name} (key: ${key}) — kept higher composite`, affectedCardIds: [id, prev.id] });
+      } else {
+        violations.push({ cardId: id, type: 'duplicate', message: `Duplicate of ${card.name} (key: ${key}) — dropped lower composite`, affectedCardIds: [id, prev.id] });
+      }
+    } else {
+      seenKeys.set(key, { id, composite: entry.scores.composite });
+    }
+  }
+  const dedupedIds = new Set(Array.from(seenKeys.values()).map(v => v.id));
+  let repairedIds = cardIds.filter(id => {
+    const entry = entryById.get(id);
+    if (!entry) return true;
+    if (canRunMultipleCopies(entry.scryfallData)) return true;
+    return dedupedIds.has(id);
+  });
+
+  // 2. Re-verify color identity against commander
+  const cmdCI = new Set(getColorIdentity(commander).map(c => c.toUpperCase()));
+  repairedIds = repairedIds.filter(id => {
+    const entry = entryById.get(id);
+    if (!entry) return true;
+    const cardCI = getColorIdentity(entry.scryfallData).map(c => c.toUpperCase());
+    if (cardCI.length === 0 || cardCI.every(c => cmdCI.has(c))) return true;
+    violations.push({ cardId: id, type: 'color_identity', message: `${entry.scryfallData.name} outside commander color identity`, affectedCardIds: [id] });
+    return false;
+  });
+
+  // 3. Ensure exactly 99 (commander not in cardIds)
+  let repairedList = [...repairedIds];
+  const entryList = repairedList.map(id => entryById.get(id)).filter(Boolean) as CollectionEntry[];
+  const usedKeys = new Set<string>();
+  for (const id of repairedList) {
+    const entry = entryById.get(id);
+    if (entry && !canRunMultipleCopies(entry.scryfallData)) {
+      usedKeys.add(getDeckCardKey(entry.scryfallData));
+    }
+  }
+
+  if (repairedList.length > 99) {
+    // Trim lowest-composite non-land cards first
+    const excess = repairedList.length - 99;
+    const ranked = [...repairedList]
+      .map(id => ({ id, entry: entryById.get(id) }))
+      .filter(e => e.entry && !isLandCard(e.entry.scryfallData))
+      .sort((a, b) => (a.entry!.scores.composite || 0) - (b.entry!.scores.composite || 0));
+    const toRemove = new Set(ranked.slice(0, excess).map(r => r.id));
+    repairedList = repairedList.filter(id => !toRemove.has(id));
+    violations.push({ cardId: '', type: 'deck_size', message: `Deck exceeded 99 cards (was ${repairedIds.length}), trimmed ${excess} lowest-composite non-lands`, affectedCardIds: [...toRemove] });
+  } else if (repairedList.length < 99) {
+    // Refill from highest-composite unselected legal cards in valid (real collection only, not virtual)
+    const needed = 99 - repairedList.length;
+    const existingIds = new Set(repairedList);
+    const candidates = valid.filter(entry => {
+      if (existingIds.has(entry.scryfallData.id)) return false;
+      if (entry.scryfallData.id.startsWith('virtual-basic-')) return false;
+      const key = getDeckCardKey(entry.scryfallData);
+      if (usedKeys.has(key) && !canRunMultipleCopies(entry.scryfallData)) return false;
+      const cardCI = getColorIdentity(entry.scryfallData).map(c => c.toUpperCase());
+      return cardCI.length === 0 || cardCI.every(c => cmdCI.has(c));
+    });
+    let added = 0;
+    for (const entry of candidates) {
+      if (added >= needed) break;
+      repairedList.push(entry.scryfallData.id);
+      usedKeys.add(getDeckCardKey(entry.scryfallData));
+      added++;
+    }
+    if (added > 0) {
+      violations.push({ cardId: '', type: 'deck_size', message: `Deck was short ${99 - repairedList.length + added} cards after repair, filled ${added} from pool`, affectedCardIds: repairedList.slice(-added) });
+    }
+  }
+
+  // 4. Rebuild roles for repaired list
+  const repairedRoles: Record<string, DeckRole> = {};
+  for (const id of repairedList) {
+    repairedRoles[id] = roles[id] || { role: 'Synergy Pieces', reason: 'Added by deck repair' };
+  }
+
+  if (violations.length) {
+    console.log('[validateAndRepairDeck] violations:', JSON.stringify(violations, null, 2));
+  }
+
+  return { cardIds: repairedList, roles: repairedRoles, violations };
 }

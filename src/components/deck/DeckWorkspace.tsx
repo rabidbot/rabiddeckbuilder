@@ -95,7 +95,10 @@ export default function DeckWorkspace() {
       const targetCategory = overData?.category;
 
       if (isFromPool && targetCategory) {
-        addCard(activeId, { role: targetCategory, reason: `Dragged to ${targetCategory}` });
+        const entry = activeData?.entry ?? collection.find((e) => e.scryfallData.id === activeId);
+        if (entry) {
+          addCard(entry.scryfallData, { role: targetCategory, reason: `Dragged to ${targetCategory}` });
+        }
         return;
       }
 

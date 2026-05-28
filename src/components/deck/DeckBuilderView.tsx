@@ -251,7 +251,7 @@ export default function DeckBuilderView() {
         );
         if (found) {
           const { addCard } = useDeckStore.getState();
-          addCard(found.scryfallData.id, { role: 'Imported', reason: `Imported: ${name}` });
+          addCard(found.scryfallData, { role: 'Imported', reason: `Imported: ${name}` });
           existingNames.add(nameLower);
           imported++;
         }

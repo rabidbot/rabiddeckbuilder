@@ -680,7 +680,7 @@ function CardDetailPanel({
             </span>
           ) : (
             <button
-              onClick={() => { addCard(card.id, { role: 'Manual', reason: 'Added from collection' }); addToast(`Added ${card.name}`, 'success'); }}
+              onClick={() => { addCard(card, { role: 'Manual', reason: 'Added from collection' }); addToast(`Added ${card.name}`, 'success'); }}
               disabled={!s.valid || cardIds.length >= 99 || isNameDuplicate}
               className="flex-1 px-3 py-2 rounded-lg bg-success/10 border border-success/20 text-success text-xs font-medium hover:bg-success/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
             >
