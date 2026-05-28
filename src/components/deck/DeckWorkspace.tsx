@@ -114,9 +114,9 @@ export default function DeckWorkspace() {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-3 lg:h-[calc(100vh-230px)]">
-        <div className="rounded-2xl border border-border bg-card overflow-hidden flex flex-col shadow-sm max-h-[50vh] lg:max-h-none">
-          <div className="px-3 py-2.5 border-b border-border/50">
+      <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-3 lg:h-[calc(100vh-230px)] animate-[fade-in-up_0.35s_ease-out]">
+        <div className="rounded-2xl border border-border bg-card overflow-hidden flex flex-col shadow-[0_8px_32px_rgba(0,0,0,0.5)] max-h-[50vh] lg:max-h-none transition-shadow duration-300 hover:shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_20px_rgba(180,77,255,0.04)]">
+          <div className="px-3 py-2.5 border-b border-border/50 bg-gradient-to-r from-primary/5 to-transparent">
             <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-text-muted">
               Collection ({collection.length})
             </span>
@@ -126,8 +126,8 @@ export default function DeckWorkspace() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-border bg-card overflow-hidden flex flex-col shadow-sm min-h-0">
-          <div className="sticky top-0 flex items-center justify-between px-4 py-3 bg-card-elevated border-b border-border/50 z-10">
+        <div className="rounded-2xl border border-border bg-card overflow-hidden flex flex-col shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_20px_rgba(255,170,0,0.06)] min-h-0">
+          <div className="sticky top-0 flex items-center justify-between px-4 py-3 bg-gradient-to-r from-accent/5 to-primary/5 backdrop-blur-md border-b border-border/50 z-10">
             <h3 className="text-sm font-semibold text-text">Deck List</h3>
             <span className="text-sm text-text-secondary">
               <strong className="text-primary">{cardIds.length}</strong>/99
@@ -158,7 +158,7 @@ export default function DeckWorkspace() {
 
       <DragOverlay dropAnimation={null}>
         {activeCard ? (
-          <div className="rounded-xl border border-primary/40 bg-card px-4 py-2.5 shadow-lg">
+          <div className="rounded-xl border border-primary/40 glass px-4 py-2.5 shadow-[0_0_30px_rgba(255,170,0,0.2),0_8px_25px_rgba(0,0,0,0.5)]">
             <div className="flex items-center gap-3">
               <span className="text-sm text-text font-medium">{activeCard.scryfallData.name}</span>
               <span className="text-xs text-text-muted font-mono">

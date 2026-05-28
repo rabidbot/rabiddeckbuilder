@@ -156,7 +156,7 @@ export default function WelcomeView() {
       </div>
 
       {/* Step 1 — Import */}
-      <div className={`rounded-2xl border p-6 transition-all ${stepState(hasCollection, true)}`}>
+      <div className={`rounded-2xl border p-6 transition-all duration-300 hover:shadow-[0_4px_20px_rgba(255,170,0,0.08)] ${stepState(hasCollection, true)}`}>
         <div className="flex items-center gap-3 mb-4">
           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${hasCollection ? 'bg-success text-white' : 'bg-primary text-white'}`}>
             {hasCollection ? <Check size={16} /> : '1'}
@@ -203,7 +203,7 @@ export default function WelcomeView() {
       </div>
 
       {/* Step 2 — Commander */}
-      <div className={`rounded-2xl border p-6 transition-all ${stepState(hasCommander, hasCollection)}`}>
+      <div className={`rounded-2xl border p-6 transition-all duration-300 hover:shadow-[0_4px_20px_rgba(255,170,0,0.08)] ${stepState(hasCommander, hasCollection)}`}>
         <div className="flex items-center gap-3 mb-4">
           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${hasCommander ? 'bg-success text-white' : hasCollection ? 'bg-primary text-white' : 'bg-border text-text-muted'}`}>
             {hasCommander ? <Check size={16} /> : '2'}
@@ -246,7 +246,7 @@ export default function WelcomeView() {
                     <button
                       key={card.id}
                       onClick={() => { setCommander(card); setShowCommanders(false); }}
-                      className="flex items-center gap-3 p-3 rounded-xl border border-border hover:border-primary hover:bg-primary/[0.03] transition-colors text-left"
+                      className="flex items-center gap-3 p-3 rounded-xl border border-border hover:border-primary hover:bg-primary/[0.03] hover:shadow-[0_0_12px_rgba(255,170,0,0.1)] hover:scale-[1.02] transition-all duration-200 text-left"
                     >
                       {img ? (
                         <img src={img} alt={card.name} className="w-10 h-14 rounded object-cover" loading="lazy"
@@ -273,7 +273,7 @@ export default function WelcomeView() {
       </div>
 
       {/* Step 3 — Build */}
-      <div className={`rounded-2xl border p-6 transition-all ${stepState(hasDeck, hasCommander)}`}>
+      <div className={`rounded-2xl border p-6 transition-all duration-300 hover:shadow-[0_4px_20px_rgba(255,170,0,0.08)] ${stepState(hasDeck, hasCommander)}`}>
         <div className="flex items-center gap-3 mb-4">
           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${hasDeck ? 'bg-success text-white' : hasCommander ? 'bg-primary text-white' : 'bg-border text-text-muted'}`}>
             {hasDeck ? <Check size={16} /> : '3'}
@@ -290,7 +290,7 @@ export default function WelcomeView() {
           <button
             onClick={handleBuild}
             disabled={isBuilding}
-            className="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-primary text-white font-semibold text-lg shadow-md hover:bg-primary-dark transition-colors disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-gradient-to-br from-accent to-primary-dark text-white font-semibold text-lg shadow-[0_8px_25px_rgba(0,0,0,0.3)] hover:scale-[1.02] hover:shadow-[0_0_25px_rgba(180,77,255,0.3)] transition-all duration-200 disabled:opacity-50 disabled:hover:scale-100"
           >
             <Wand2 size={20} />
             {isBuilding ? 'Building...' : hasDeck ? 'Rebuild Deck' : 'Build Optimal Deck'}

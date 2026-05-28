@@ -86,9 +86,9 @@ export default function DeckCategoryColumn({ title, entries, onRemove }: DeckCat
   return (
     <div
       ref={setNodeRef}
-      className={`border-b border-border/30 transition-colors ${isOver ? 'bg-primary/10 border-primary/20' : ''}`}
+      className={`border-b border-border/30 transition-all duration-200 ${isOver ? 'bg-primary/10 border-primary/20 shadow-[inset_0_0_20px_rgba(255,170,0,0.08)] scale-[1.005]' : ''}`}
     >
-      <div className="sticky top-0 bg-white/[0.03] px-3 py-2 flex items-center justify-between z-[2] backdrop-blur-sm">
+      <div className="sticky top-0 bg-card-elevated/80 px-3 py-2 flex items-center justify-between z-[2] backdrop-blur-sm">
         <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-text-muted">
           {title}
         </span>
@@ -101,7 +101,7 @@ export default function DeckCategoryColumn({ title, entries, onRemove }: DeckCat
           ))}
         </SortableContext>
         {entries.length === 0 && (
-          <div className="py-3 text-[10px] text-text-muted text-center">
+          <div className="py-3 mx-2 text-[10px] text-primary/40 border border-dashed border-primary/20 rounded-lg text-center">
             Drop cards here
           </div>
         )}

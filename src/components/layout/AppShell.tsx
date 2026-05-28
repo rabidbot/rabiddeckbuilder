@@ -9,7 +9,7 @@ export default function AppShell() {
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
-      <main className="flex-1 p-4 md:p-6 max-w-[1660px] mx-auto w-full overflow-hidden">
+      <main className="flex-1 p-4 md:p-6 max-w-[1660px] mx-auto w-full overflow-hidden animate-[fade-in-up_0.35s_ease-out]">
         <Outlet />
       </main>
 
@@ -18,7 +18,7 @@ export default function AppShell() {
           <div
             key={toast.id}
             className={`
-              pointer-events-auto rounded-xl border px-4 py-3 text-sm shadow-lg toast-enter
+              pointer-events-auto glass rounded-xl border px-4 py-3 text-sm shadow-lg toast-enter
               ${toast.type === 'success' ? 'bg-success/10 border-success/30 text-success'
               : toast.type === 'error' ? 'bg-danger/10 border-danger/30 text-danger'
               : 'bg-primary/10 border-primary/20 text-primary'}

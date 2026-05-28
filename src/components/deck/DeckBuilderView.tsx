@@ -329,7 +329,7 @@ export default function DeckBuilderView() {
             onClick={handleBuild}
             disabled={isBuilding}
             title="Ctrl+B"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-br from-accent to-primary-dark text-white font-semibold text-sm shadow-[0_8px_20px_rgba(0,0,0,0.22)] hover:brightness-110 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-br from-accent to-primary-dark text-white font-semibold text-sm shadow-[0_8px_20px_rgba(0,0,0,0.22)] hover:brightness-110 hover:scale-[1.03] hover:shadow-[0_0_25px_rgba(180,77,255,0.3)] transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-[0_8px_20px_rgba(0,0,0,0.22)]"
           >
             <Wand2 size={15} />
             {isBuilding ? 'Building...' : 'Build Optimal Deck'}
@@ -400,7 +400,7 @@ export default function DeckBuilderView() {
       {/* Hero Stats Row */}
       {blueprint && profile && (
         <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-5 gap-2">
-          <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/8 to-info/3 p-3 col-span-2 md:col-span-1">
+          <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/8 to-info/3 p-3 col-span-2 md:col-span-1 hover-lift">
             <div className="text-[9px] uppercase tracking-[0.12em] text-text-muted mb-1">Game Plan</div>
             <div className="text-sm font-bold text-text">{gamePlan || 'No plan'}</div>
             <div className="text-[10px] text-text-secondary mt-0.5">
@@ -416,7 +416,7 @@ export default function DeckBuilderView() {
           </div>
 
           {statRows.slice(0, 4).map((row) => (
-            <div key={row.label} className="rounded-xl border border-border bg-card shadow-sm p-3 shadow-[0_12px_24px_rgba(0,0,0,0.2)]">
+            <div key={row.label} className="rounded-xl border border-border bg-card shadow-sm p-3 shadow-[0_12px_24px_rgba(0,0,0,0.2)] hover-lift">
               <div className="text-[9px] uppercase tracking-[0.12em] text-text-muted mb-0.5">{row.label}</div>
               <div className="flex items-baseline gap-1.5">
                 <span className={`text-lg font-bold ${fixStatusColor(row.actual, row.min, row.soft, row.good)}`}>
@@ -441,7 +441,7 @@ export default function DeckBuilderView() {
       {/* Save Modal */}
       {saveModalOpen && (
         <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setSaveModalOpen(false)}>
-          <div className="rounded-2xl border border-white/10 bg-card p-6 w-full max-w-sm shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="rounded-2xl border border-border glass p-6 w-full max-w-sm shadow-2xl animate-[fade-in_0.2s_ease-out]" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-sm font-semibold text-text mb-4">Save Deck</h3>
             <input
               id="save-deck-name"
@@ -464,7 +464,7 @@ export default function DeckBuilderView() {
       {/* Load Modal */}
       {loadModalOpen && (
         <div className="fixed inset-0 z-[400] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setLoadModalOpen(false)}>
-          <div className="rounded-2xl border border-white/10 bg-card p-6 w-full max-w-sm shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="rounded-2xl border border-border glass p-6 w-full max-w-sm shadow-2xl animate-[fade-in_0.2s_ease-out]" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-sm font-semibold text-text mb-4">Load Deck</h3>
             {savedDecks.length === 0 ? (
               <p className="text-sm text-text-muted text-center py-6">No saved decks yet.</p>

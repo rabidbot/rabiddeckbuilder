@@ -45,16 +45,54 @@ body {
   background: #060606;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1f1f1f;
+  background: rgba(255, 170, 0, 0.12);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #333333;
+  background: rgba(255, 170, 0, 0.25);
 }
 
 ::selection {
   background: rgba(255, 170, 0, 0.3);
   color: #ffffff;
+}
+
+/* ===== Animations ===== */
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(255, 170, 0, 0.2), 0 0 20px rgba(255, 170, 0, 0.05); }
+  50% { box-shadow: 0 0 16px rgba(255, 170, 0, 0.4), 0 0 40px rgba(255, 170, 0, 0.1); }
+}
+
+@keyframes pulse-glow-purple {
+  0%, 100% { box-shadow: 0 0 8px rgba(180, 77, 255, 0.2), 0 0 20px rgba(180, 77, 255, 0.05); }
+  50% { box-shadow: 0 0 16px rgba(180, 77, 255, 0.4), 0 0 40px rgba(180, 77, 255, 0.1); }
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes text-glow {
+  0%, 100% { text-shadow: 0 0 8px rgba(255, 170, 0, 0.3), 0 0 20px rgba(255, 170, 0, 0.08); }
+  50% { text-shadow: 0 0 14px rgba(255, 170, 0, 0.5), 0 0 32px rgba(255, 170, 0, 0.15); }
 }
 
 @keyframes toast-in {
@@ -67,4 +105,29 @@ body {
 }
 .toast-enter {
   animation: toast-in 0.25s ease-out forwards;
+}
+
+/* ===== Utility Classes ===== */
+
+.hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5), 0 0 12px rgba(255, 170, 0, 0.1);
+}
+
+.glass {
+  background: rgba(10, 10, 10, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.neon-glow-primary {
+  box-shadow: 0 0 12px rgba(255, 170, 0, 0.15), 0 0 30px rgba(255, 170, 0, 0.05);
+}
+
+.neon-glow-accent {
+  box-shadow: 0 0 12px rgba(180, 77, 255, 0.15), 0 0 30px rgba(180, 77, 255, 0.05);
 }

@@ -42,7 +42,7 @@ export default function CardPreview({ entry, children }: CardPreviewProps) {
           className="fixed z-[300] pointer-events-none"
           style={{ left: tooltipX, top: tooltipY }}
         >
-          <div className="rounded-xl border border-primary/20 bg-card shadow-lg overflow-hidden w-[220px]">
+          <div className="glass rounded-xl border border-primary/20 shadow-[0_0_20px_rgba(255,170,0,0.15)] overflow-hidden w-[220px] animate-[fade-in_0.2s_ease-out]">
             {imgUrl ? (
               <img
                 src={imgUrl}

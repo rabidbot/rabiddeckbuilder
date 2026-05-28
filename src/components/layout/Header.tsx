@@ -1,12 +1,10 @@
 import { NavLink } from 'react-router-dom';
-import { Home, Upload, Library, Wand2, BarChart3, Swords } from 'lucide-react';
-import { useCollectionStore } from '../../stores/collectionStore';
-import { useDeckStore } from '../../stores/deckStore';
+import { Home, Upload, Crown, Wand2, BarChart3, Swords } from 'lucide-react';
 
 const navItems = [
   { to: '/', icon: Home, label: 'Home' },
   { to: '/import', icon: Upload, label: 'Import' },
-  { to: '/collection', icon: Library, label: 'Collection' },
+  { to: '/collection', icon: Crown, label: 'Commander' },
   { to: '/builder', icon: Wand2, label: 'Deck Builder' },
   { to: '/stats', icon: BarChart3, label: 'Stats' },
   { to: '/tracker', icon: Swords, label: 'Tracker' },
@@ -18,7 +16,7 @@ export default function Header() {
   const deckCount = useDeckStore((s) => s.cardIds.length);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-card/80 backdrop-blur-md">
+    <header className="sticky top-0 z-50 border-b border-primary/5 bg-card/80 backdrop-blur-md shadow-[0_1px_0_rgba(255,170,0,0.04)]">
       <div className="max-w-[1660px] mx-auto px-4 md:px-6">
         <div className="flex items-center justify-between h-14">
           <div className="flex items-center gap-6">
@@ -36,9 +34,9 @@ export default function Header() {
                   to={to}
                   end={to === '/'}
                   className={({ isActive }) =>
-                    `flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    `flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
                       isActive
-                        ? 'bg-primary/10 text-primary'
+                        ? 'bg-primary/10 text-primary shadow-[0_0_12px_rgba(255,170,0,0.15)] ring-1 ring-primary/20'
                         : 'text-text-secondary hover:bg-hover hover:text-text'
                     }`
                   }
@@ -56,7 +54,7 @@ export default function Header() {
               <span className="font-semibold text-text">{collectionCount}</span>
             </span>
             {commander && (
-              <span className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-primary/20 text-text-secondary">
+              <span className="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-primary/20 bg-primary/[0.03] text-text-secondary animate-[pulse-glow_2s_ease-in-out_infinite]">
                 <span className="text-text-muted">Cmdr:</span>
                 <span className="font-semibold text-primary truncate max-w-[160px]">{commander.name}</span>
               </span>
