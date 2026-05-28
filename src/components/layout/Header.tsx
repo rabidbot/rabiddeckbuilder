@@ -1,5 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { Home, Upload, Crown, Wand2, BarChart3, Swords } from 'lucide-react';
+import { useCollectionStore } from '../../stores/collectionStore';
+import { useDeckStore } from '../../stores/deckStore';
 
 const navItems = [
   { to: '/', icon: Home, label: 'Home' },
