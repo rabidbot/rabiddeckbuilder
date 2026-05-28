@@ -1,7 +1,8 @@
 import type { ScryfallCard, CollectionEntry } from './types';
 
 export function getColorIdentity(card: ScryfallCard): string[] {
-  return (card.color_identity || []).map((c) => c.toUpperCase());
+  const ci = card.color_identity;
+  return Array.isArray(ci) ? ci.map((c) => c.toUpperCase()) : [];
 }
 
 export function isLegendaryCreature(card: ScryfallCard): boolean {
@@ -63,7 +64,9 @@ export function getCurveBucket(cmc: number): 'low' | 'mid' | 'high' | 'finisher'
 }
 
 export function getProducedColors(card: ScryfallCard): string[] {
-  const produced = new Set<string>((card.produced_mana || []).map((c) => c.toUpperCase()));
+  const raw = card.produced_mana;
+  const mana = Array.isArray(raw) ? raw : [];
+  const produced = new Set<string>(mana.map((c) => c.toUpperCase()));
   const oracle = getOracleText(card).toLowerCase();
   const typeLine = getTypeLine(card).toLowerCase();
 

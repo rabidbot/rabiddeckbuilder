@@ -35,7 +35,7 @@ export async function cacheCard(card: ScryfallCard): Promise<void> {
       serializeJson(card.card_faces),
       serializeJson(card.prices),
       serializeJson(card.legalities),
-      serializeJson(card.produced_mana),
+      serializeJson(card.produced_mana || []),
       card.released_at || '',
     ],
   );
