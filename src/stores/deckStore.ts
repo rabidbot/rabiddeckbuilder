@@ -88,15 +88,21 @@ export const useDeckStore = create<DeckState>((set, get) => ({
     set({ isBuilding: true });
 
     setTimeout(() => {
-      const result = buildOptimalDeck(collection, commanderEntry, get().powerLevel);
-      set({
-        cardIds: result.cardIds,
-        roles: result.roles,
-        gamePlan: result.gamePlan,
-        deckName: '',
-        loadedDeckId: null,
-        isBuilding: false,
-      });
+      try {
+        const result = buildOptimalDeck(collection, commanderEntry, get().powerLevel);
+        set({
+          cardIds: result.cardIds,
+          roles: result.roles,
+          gamePlan: result.gamePlan,
+          deckName: '',
+          loadedDeckId: null,
+          isBuilding: false,
+        });
+      } catch (err) {
+        console.error('buildOptimalDeck failed:', err);
+        useToastStore.getState().addToast(`Build failed: ${(err as Error).message}`, 'error');
+        set({ isBuilding: false });
+      }
     }, 0);
   },
 
