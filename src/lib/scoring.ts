@@ -186,6 +186,20 @@ export function scoreCard(
       };
     }
 
+    const legality = ((scryfallData.legalities && scryfallData.legalities.commander || '') || '').toLowerCase();
+    if (legality === 'banned' || legality === 'not_legal') {
+      return {
+        power, manaEff, cmdSynergy: 0, winCon: 0, budget: 0, composite: 0, valid: false,
+        reasons: {
+          power: powerReasons.length ? powerReasons : ['Card is banned in Commander'],
+          manaEff: manaReasons,
+          cmdSynergy: ['Banned/illegal in Commander'],
+          winCon: ['Banned/illegal in Commander'],
+          budget: ['N/A'],
+        },
+      };
+    }
+
     synergyReasons.push('Color identity valid');
     cmdSynergy = 5;
 
