@@ -705,6 +705,35 @@ function validateAndRepairDeck(
     if (!entryById.has(entry.scryfallData.id)) entryById.set(entry.scryfallData.id, entry);
   }
 
+  // 0. Dedup by lowercased name (catches DFCs with same name, different oracle_ids)
+  const seenNames = new Map<string, { id: string; composite: number }>();
+  for (const id of cardIds) {
+    const entry = entryById.get(id);
+    if (!entry) continue;
+    const card = entry.scryfallData;
+    if (canRunMultipleCopies(card)) continue;
+    const nameKey = (card.name || '').toLowerCase();
+    const prev = seenNames.get(nameKey);
+    if (prev) {
+      if (entry.scores.composite > prev.composite) {
+        seenNames.set(nameKey, { id, composite: entry.scores.composite });
+        violations.push({ cardId: prev.id, type: 'duplicate', message: `Name collision: ${card.name} — kept higher composite`, affectedCardIds: [id, prev.id] });
+      } else {
+        violations.push({ cardId: id, type: 'duplicate', message: `Name collision: ${card.name} — dropped lower composite`, affectedCardIds: [id, prev.id] });
+      }
+    } else {
+      seenNames.set(nameKey, { id, composite: entry.scores.composite });
+    }
+  }
+  const nameDedupedIds = new Set(Array.from(seenNames.values()).map(v => v.id));
+  cardIds = cardIds.filter(id => {
+    const entry = entryById.get(id);
+    if (!entry) return true;
+    if (canRunMultipleCopies(entry.scryfallData)) return true;
+    return nameDedupedIds.has(id);
+  });
+  console.log('[nameDedup] final count after name dedup:', cardIds.length);
+
   // 1. Dedup by getDeckCardKey, keep highest composite (basic lands exempt)
   const seenKeys = new Map<string, { id: string; composite: number }>();
   for (const id of cardIds) {
