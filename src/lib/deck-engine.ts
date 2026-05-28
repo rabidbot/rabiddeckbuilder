@@ -1,5 +1,5 @@
 import type { CollectionEntry, CommanderAnalysis, DeckBlueprint, DeckProfile, DeckRole } from './types';
-import { getOracleText, getTypeLine, getManaCost, getColorIdentity, getDeckCardKey, isLandCard, isBasicLandCard } from './card-utils';
+import { getOracleText, getTypeLine, getManaCost, getColorIdentity, getDeckCardKey, isLandCard, isBasicLandCard, canRunMultipleCopies } from './card-utils';
 import { detectCardRoles, cardMatchesTheme } from './card-roles';
 import { getDeckBlueprint } from './deck-blueprint';
 import type { PowerLevel } from './deck-blueprint';
