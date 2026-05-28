@@ -46,7 +46,10 @@ export function isBasicLandCard(card: ScryfallCard): boolean {
 }
 
 export function canRunMultipleCopies(card: ScryfallCard): boolean {
-  return isBasicLandCard(card) || /a deck can have any number of cards named/i.test(getOracleText(card));
+  if (isBasicLandCard(card)) return true;
+  const oracle = getOracleText(card);
+  if (typeof oracle !== 'string' || !oracle) return false;
+  return /\ba deck can have any number of cards named\b/i.test(oracle);
 }
 
 export function getDeckCardKey(card: ScryfallCard): string {

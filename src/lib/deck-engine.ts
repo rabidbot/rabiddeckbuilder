@@ -477,7 +477,7 @@ export function buildOptimalDeck(
   };
 
   const singletonPool = new Map<string, CollectionEntry>();
-  const DEBUG_NAMES = new Set(['jolted awake', 'stratosoarer', 'shimmercreep', 'dawn-blessed pennant']);
+  const DEBUG_NAMES = new Set(['jolted awake', 'stratosoarer', 'shimmercreep', 'dawn-blessed pennant', 'eclipsed realms']);
   for (const entry of augmentedCollection) {
     const card = entry.scryfallData;
     if (card && DEBUG_NAMES.has((card.name || '').toLowerCase())) {
