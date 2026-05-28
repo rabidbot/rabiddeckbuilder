@@ -33,15 +33,19 @@ const CATEGORY_ORDER = [
 export default function DeckWorkspace() {
   const collection = useCollectionStore((s) => s.collection);
   const commander = useCollectionStore((s) => s.commander);
-  const { cardIds, categoryOverrides, addCard, removeCard, setCategoryOverride } = useDeckStore();
+  const { cardIds, categoryOverrides, addCard, removeCard, setCategoryOverride, virtualEntries } = useDeckStore();
 
   const [activeCard, setActiveCard] = useState<CollectionEntry | null>(null);
 
   const { setNodeRef: poolRef } = useDroppable({ id: 'pool-zone', data: { category: null } });
 
   const deckEntries = useMemo(
-    () => collection.filter((e) => cardIds.includes(e.scryfallData.id)),
-    [collection, cardIds],
+    () => {
+      const real = collection.filter((e) => cardIds.includes(e.scryfallData.id));
+      const virtual = virtualEntries.filter((v) => cardIds.includes(v.scryfallData.id));
+      return [...real, ...virtual];
+    },
+    [collection, cardIds, virtualEntries],
   );
 
   const cmdrEntry = useMemo(

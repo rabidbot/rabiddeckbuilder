@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import type { DeckRole } from '../lib/types';
-import { buildOptimalDeck } from '../lib/deck-engine';
+import type { DeckRole, CollectionEntry } from '../lib/types';
+import { buildOptimalDeck, createVirtualBasicLands } from '../lib/deck-engine';
+import { analyzeCommander } from '../lib/commander-analyzer';
 import { useCollectionStore } from './collectionStore';
 import { useToastStore } from './toastStore';
 
@@ -15,6 +16,7 @@ interface DeckState {
   loadedDeckId: string | null;
   isBuilding: boolean;
   powerLevel: PowerLevel;
+  virtualEntries: CollectionEntry[];
   addCard: (id: string, role: DeckRole) => void;
   removeCard: (id: string) => void;
   setDeck: (ids: string[], roles: Record<string, DeckRole>, gamePlan: string, name?: string, deckId?: string | null) => void;
@@ -34,6 +36,7 @@ export const useDeckStore = create<DeckState>((set, get) => ({
   loadedDeckId: null,
   isBuilding: false,
   powerLevel: '75%',
+  virtualEntries: [],
 
   addCard: (id, role) => {
     const { cardIds } = get();
@@ -68,7 +71,7 @@ export const useDeckStore = create<DeckState>((set, get) => ({
   },
 
   clearDeck: () =>
-    set({ cardIds: [], roles: {}, categoryOverrides: {}, gamePlan: '', deckName: '', loadedDeckId: null }),
+    set({ cardIds: [], roles: {}, categoryOverrides: {}, gamePlan: '', deckName: '', loadedDeckId: null, virtualEntries: [] }),
 
   buildDeck: () => {
     const { collection, commander } = useCollectionStore.getState();
@@ -90,6 +93,8 @@ export const useDeckStore = create<DeckState>((set, get) => ({
     setTimeout(() => {
       try {
         const result = buildOptimalDeck(collection, commanderEntry, get().powerLevel);
+        const virtualIds = new Set(result.cardIds.filter((id) => id.startsWith('virtual-basic-')));
+        const allVirtual = createVirtualBasicLands(analyzeCommander(commander).ci);
         set({
           cardIds: result.cardIds,
           roles: result.roles,
@@ -97,6 +102,7 @@ export const useDeckStore = create<DeckState>((set, get) => ({
           deckName: '',
           loadedDeckId: null,
           isBuilding: false,
+          virtualEntries: allVirtual.filter((v) => virtualIds.has(v.scryfallData.id)),
         });
       } catch (err) {
         console.error('buildOptimalDeck failed:', err);

@@ -77,7 +77,7 @@ function barColor(actual: number, good: number, soft: number) {
 export default function DeckBuilderView() {
   const collection = useCollectionStore((s) => s.collection);
   const commander = useCollectionStore((s) => s.commander);
-  const { cardIds, roles, gamePlan, deckName: activeDeckName, loadedDeckId, isBuilding, powerLevel, buildDeck, clearDeck, setPowerLevel } = useDeckStore();
+  const { cardIds, roles, gamePlan, deckName: activeDeckName, loadedDeckId, isBuilding, powerLevel, virtualEntries, buildDeck, clearDeck, setPowerLevel } = useDeckStore();
   const addToast = useToastStore((s) => s.addToast);
 
   const [saveModalOpen, setSaveModalOpen] = useState(false);
@@ -96,8 +96,12 @@ export default function DeckBuilderView() {
   }, [loadModalOpen, refreshDecks]);
 
   const deckEntries = useMemo(
-    () => collection.filter((e) => cardIds.includes(e.scryfallData.id)),
-    [collection, cardIds],
+    () => {
+      const real = collection.filter((e) => cardIds.includes(e.scryfallData.id));
+      const virtual = virtualEntries.filter((v) => cardIds.includes(v.scryfallData.id));
+      return [...real, ...virtual];
+    },
+    [collection, cardIds, virtualEntries],
   );
 
   const cmdrEntry = useMemo(

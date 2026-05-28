@@ -347,6 +347,91 @@ function identifyWinConditions(
   return winSignals;
 }
 
+const BASIC_LAND_MAP: Record<string, { name: string; color: string; abbr: string }> = {
+  W: { name: 'Plains', color: 'W', abbr: 'Plains' },
+  U: { name: 'Island', color: 'U', abbr: 'Island' },
+  B: { name: 'Swamp', color: 'B', abbr: 'Swamp' },
+  R: { name: 'Mountain', color: 'R', abbr: 'Mountain' },
+  G: { name: 'Forest', color: 'G', abbr: 'Forest' },
+};
+
+export function createVirtualBasicLand(name: string, color: string, copyIndex: number): CollectionEntry {
+  const id = `virtual-basic-${name.toLowerCase()}-${copyIndex}`;
+  return {
+    scryfallData: {
+      id,
+      oracle_id: id,
+      name,
+      mana_cost: '',
+      cmc: 0,
+      type_line: `Basic Land — ${name}`,
+      oracle_text: `({T}: Add {${color}}.)`,
+      colors: [],
+      color_identity: [color],
+      keywords: [],
+      power: '',
+      toughness: '',
+      loyalty: '',
+      set: 'basic',
+      set_name: 'Basic Lands',
+      collector_number: String(copyIndex),
+      rarity: 'common',
+      scryfall_uri: '',
+      image_uris: {},
+      card_faces: [],
+      prices: {},
+      legalities: {},
+      produced_mana: [color],
+      released_at: '',
+    },
+    scores: {
+      composite: 50,
+      power: 2,
+      cmdSynergy: 2,
+      manaEff: 8,
+      winCon: 0,
+      budget: 10,
+      valid: true,
+      reasons: {
+        power: ['Basic land — always useful'],
+        cmdSynergy: [],
+        manaEff: ['Produces needed mana'],
+        winCon: [],
+        budget: ['Free'],
+      },
+    },
+    csvRow: {
+      name,
+      setCode: 'basic',
+      setName: 'Basic Lands',
+      collectorNumber: String(copyIndex),
+      foil: 'false',
+      rarity: 'common',
+      quantity: '1',
+      manaBoxId: '',
+      scryfallId: id,
+      purchasePrice: '0',
+      misprint: 'false',
+      altered: 'false',
+      condition: 'NM',
+      language: 'en',
+    },
+  };
+}
+
+export function createVirtualBasicLands(commanderColors: string[]): CollectionEntry[] {
+  const entries: CollectionEntry[] = [];
+  const colors = commanderColors.length ? commanderColors : ['C'];
+  for (const color of colors) {
+    const land = BASIC_LAND_MAP[color];
+    if (!land) continue;
+    for (let i = 0; i < 15; i++) {
+      entries.push(createVirtualBasicLand(land.name, land.color, i + 1));
+    }
+  }
+  return entries;
+}
+
 export function buildOptimalDeck(
   collection: CollectionEntry[],
   commander: CollectionEntry,
@@ -359,6 +444,8 @@ export function buildOptimalDeck(
   const cmdAnalysis = analyzeCommander(commander.scryfallData);
   const blueprint = getDeckBlueprint(cmdAnalysis, powerLevel);
 
+  const augmentedCollection = [...createVirtualBasicLands(cmdAnalysis.ci), ...collection];
+
   const roleCache = new Map<string, import('./types').CardRoles>();
   const getRoles = (entry: CollectionEntry) => {
     const cacheKey = entry.scryfallData.id;
@@ -369,7 +456,7 @@ export function buildOptimalDeck(
   };
 
   const singletonPool = new Map<string, CollectionEntry>();
-  for (const entry of collection) {
+  for (const entry of augmentedCollection) {
     const card = entry.scryfallData;
     if (!card || entry.scores.valid === false || card.id === commander.scryfallData.id) continue;
     const key = getDeckCardKey(card);
