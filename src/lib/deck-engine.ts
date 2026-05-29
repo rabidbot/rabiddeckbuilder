@@ -1306,6 +1306,8 @@ export function buildOptimalDeck(
             const arr = subRoleCards.get(rk)!;
             arr.push(bestEntry);
           }
+        } else {
+          addedIds.add(bestEntry.scryfallData.id);
         }
       }
       // Build SubRoleFill results
