@@ -32,7 +32,9 @@ async function bootstrap() {
           }
         }
         if (collection.length > 0) {
-          useCollectionStore.getState().setCollection(collection);
+          const deduped = new Map<string, CollectionEntry>();
+          for (const e of collection) deduped.set(e.scryfallData.id, e);
+          useCollectionStore.getState().setCollection([...deduped.values()]);
         }
         if (skipped > 0) {
           console.warn(`EDH Deck Builder: ${skipped} cards from previous collection could not be restored (cache miss). Re-import to restore them.`);

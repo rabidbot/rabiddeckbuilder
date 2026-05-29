@@ -97,8 +97,17 @@ export default function DeckBuilderView() {
 
   const deckEntries = useMemo(
     () => {
-      const real = collection.filter((e) => cardIds.includes(e.scryfallData.id));
-      const virtual = virtualEntries.filter((v) => cardIds.includes(v.scryfallData.id));
+      const seenIds = new Set<string>();
+      const real = collection.filter((e) => {
+        if (!cardIds.includes(e.scryfallData.id) || seenIds.has(e.scryfallData.id)) return false;
+        seenIds.add(e.scryfallData.id);
+        return true;
+      });
+      const virtual = virtualEntries.filter((v) => {
+        if (!cardIds.includes(v.scryfallData.id) || seenIds.has(v.scryfallData.id)) return false;
+        seenIds.add(v.scryfallData.id);
+        return true;
+      });
       return [...real, ...virtual];
     },
     [collection, cardIds, virtualEntries],
