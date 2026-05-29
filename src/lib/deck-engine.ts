@@ -93,17 +93,17 @@ function deriveClusterArchetypes(cmdAnalysis: CommanderAnalysis): ClusterArchety
   // Tribal → density + payoffs
   if (themes.has('tribal') && cmdAnalysis.subtypes.length > 0) {
     const sub = cmdAnalysis.subtypes[0];
-    const subRe = new RegExp(`\\\\b${sub}\\\\b`, 'i');
+    const subLower = sub.toLowerCase();
     archetypes.push(mk(`${sub} Tribal Density`, {
       requires: [],
-      typePatterns: [subRe.source],
+      typePatterns: [subLower],
       roleFlags: ['synergy'],
       themes_supported: ['tribal'],
       role_in_deck: 'synergy',
       idealCards: 14,
     }));
     archetypes.push(mk(`${sub} Tribal Payoffs`, {
-      requires: [`(other|another) ${sub}`, `${sub}.*you control`, `choose a ${sub}`, `${sub}.*get \\\\+`, `for each ${sub}`, `${sub}.*enters the battlefield`],
+      requires: [`${subLower} get`, `${subLower} gets`, `${subLower} you control`, `choose a ${subLower}`, `for each ${subLower}`, `${subLower} enters`],
       typePatterns: [],
       roleFlags: ['synergy', 'finisher'],
       themes_supported: ['tribal'],
@@ -195,7 +195,7 @@ function deriveClusterArchetypes(cmdAnalysis: CommanderAnalysis): ClusterArchety
   }
 
   // Counters
-  if (themes.has('counters') || /\\+1\\/\\+1 counter|proliferate|adapt|evolve|bolster|toxic|infect/i.test(oracle)) {
+  if (themes.has('counters') || /\+1\/\+1 counter|proliferate|adapt|evolve|bolster|toxic|infect/i.test(oracle)) {
     archetypes.push(mk('Counter Engine', {
       requires: ['+1/+1 counter', 'proliferate', 'adapt', 'evolve', 'bolster', 'support'],
       typePatterns: [],
