@@ -5,9 +5,456 @@ import { getDeckBlueprint } from './deck-blueprint';
 import type { PowerLevel } from './deck-blueprint';
 import { analyzeCommander } from './commander-analyzer';
 
-function describeGamePlan(cmdAnalysis: CommanderAnalysis): string {
-  const primary = cmdAnalysis.themes.slice(0, 2).map((t) => t[0].toUpperCase() + t.slice(1));
-  return primary.length ? primary.join(' / ') : 'Balanced Goodstuff';
+interface ClusterArchetype {
+  name: string;
+  requires: string[];
+  typePatterns: string[];
+  roleFlags: string[];
+  minCards: number;
+  idealCards: number;
+  themes_supported: string[];
+  role_in_deck: 'engine' | 'wincon' | 'synergy';
+}
+
+interface ClusterCandidate {
+  archetype: ClusterArchetype;
+  cards: CollectionEntry[];
+  depth: number;
+  quality: number;
+  relevance: number;
+  score: number;
+}
+
+function describeGamePlan(cmdAnalysis: CommanderAnalysis, clusters?: ClusterCandidate[]): string {
+  if (!clusters || !clusters.length) {
+    const primary = cmdAnalysis.themes.slice(0, 2).map((t) => t[0].toUpperCase() + t.slice(1));
+    return primary.length ? primary.join(' / ') : 'Balanced Goodstuff';
+  }
+  const wincon = clusters.find((c) => c.archetype.role_in_deck === 'wincon');
+  const engines = clusters.filter((c) => c.archetype.role_in_deck === 'engine');
+  const synergies = clusters.filter((c) => c.archetype.role_in_deck === 'synergy');
+
+  const nameSample = (c: ClusterCandidate, count = 2): string => {
+    const top = c.cards.sort((a, b) => b.scores.composite - a.scores.composite).slice(0, count);
+    return top.map((e) => e.scryfallData.name).join(', ');
+  };
+
+  const parts: string[] = [];
+  if (wincon) {
+    parts.push(`This deck wins via ${wincon.archetype.name} (${nameSample(wincon, 3)})`);
+  }
+  if (engines.length) {
+    const engineList = engines.map((e) => `${e.archetype.name} (${nameSample(e)})`).join('; ');
+    parts.push(`Engines: ${engineList}`);
+  }
+  if (synergies.length) {
+    const synList = synergies.map((s) => s.archetype.name).join(', ');
+    parts.push(`Synergy: ${synList}`);
+  }
+  return parts.join('. ') + '.';
+}
+
+function deriveClusterArchetypes(cmdAnalysis: CommanderAnalysis): ClusterArchetype[] {
+  const archetypes: ClusterArchetype[] = [];
+  const oracle = cmdAnalysis.oracle;
+  const typeLine = cmdAnalysis.typeLine;
+  const themes = new Set(cmdAnalysis.themes);
+
+  const mk = (name: string, patterns: { requires: string[]; typePatterns: string[]; roleFlags: string[]; themes_supported: string[]; role_in_deck: ClusterArchetype['role_in_deck']; minCards?: number; idealCards?: number }): ClusterArchetype => ({
+    name,
+    requires: patterns.requires,
+    typePatterns: patterns.typePatterns,
+    roleFlags: patterns.roleFlags,
+    minCards: patterns.minCards ?? 3,
+    idealCards: patterns.idealCards ?? 8,
+    themes_supported: patterns.themes_supported,
+    role_in_deck: patterns.role_in_deck,
+  });
+
+  // Graveyard commander → fill + reanimation
+  if (themes.has('graveyard') || /graveyard|return.*graveyard|play.*from.*graveyard|cast.*from.*graveyard/i.test(oracle)) {
+    archetypes.push(mk('Graveyard Fill', {
+      requires: ['graveyard', 'mill', 'discard', 'surveil', 'dredge', 'descend', 'delirium', 'connive', 'loot'],
+      typePatterns: [],
+      roleFlags: ['recursion'],
+      themes_supported: ['graveyard'],
+      role_in_deck: 'engine',
+    }));
+    archetypes.push(mk('Reanimation Engine', {
+      requires: ['return.*graveyard.*battlefield', 'reanimate', 'unearth', 'persist', 'undying', 'play.*from.*graveyard', 'cast.*from.*graveyard', 'return.*creature card'],
+      typePatterns: [],
+      roleFlags: ['recursion'],
+      themes_supported: ['graveyard'],
+      role_in_deck: 'wincon',
+      idealCards: 6,
+    }));
+  }
+
+  // Tribal → density + payoffs
+  if (themes.has('tribal') && cmdAnalysis.subtypes.length > 0) {
+    const sub = cmdAnalysis.subtypes[0];
+    const subRe = new RegExp(`\\\\b${sub}\\\\b`, 'i');
+    archetypes.push(mk(`${sub} Tribal Density`, {
+      requires: [],
+      typePatterns: [subRe.source],
+      roleFlags: ['synergy'],
+      themes_supported: ['tribal'],
+      role_in_deck: 'synergy',
+      idealCards: 14,
+    }));
+    archetypes.push(mk(`${sub} Tribal Payoffs`, {
+      requires: [`(other|another) ${sub}`, `${sub}.*you control`, `choose a ${sub}`, `${sub}.*get \\\\+`, `for each ${sub}`, `${sub}.*enters the battlefield`],
+      typePatterns: [],
+      roleFlags: ['synergy', 'finisher'],
+      themes_supported: ['tribal'],
+      role_in_deck: 'wincon',
+      idealCards: 6,
+    }));
+  }
+
+  // Sacrifice → sac outlets + death triggers
+  if (themes.has('sacrifice') || /sacrifice|dies|whenever.*creature.*dies/i.test(oracle)) {
+    archetypes.push(mk('Sacrifice Outlets', {
+      requires: ['sacrifice a creature', 'sacrifice another', 'sacrifice.*:'],
+      typePatterns: [],
+      roleFlags: ['synergy'],
+      themes_supported: ['sacrifice'],
+      role_in_deck: 'engine',
+      idealCards: 5,
+    }));
+    if (cmdAnalysis.wants.includes('dies') || /dies|whenever.*creature.*dies/i.test(oracle)) {
+      archetypes.push(mk('Death Triggers', {
+        requires: ['whenever.*dies', 'whenever.*creature.*dies', 'blood artist', 'aristocrat', 'whenever.*sacrifice'],
+        typePatterns: [],
+        roleFlags: ['synergy', 'finisher'],
+        themes_supported: ['sacrifice'],
+        role_in_deck: 'wincon',
+        idealCards: 5,
+      }));
+    }
+  }
+
+  // Tokens
+  if (themes.has('tokens') || /create.*token|populate/i.test(oracle)) {
+    archetypes.push(mk('Token Engine', {
+      requires: ['create.*token', 'populate', 'amass', 'offspring'],
+      typePatterns: [],
+      roleFlags: ['tokens'],
+      themes_supported: ['tokens'],
+      role_in_deck: 'engine',
+      idealCards: 7,
+    }));
+    archetypes.push(mk('Go-Wide Payoffs', {
+      requires: ['creatures you control get', 'overrun', 'triumph of the hordes', 'extra combat', 'each creature you control'],
+      typePatterns: [],
+      roleFlags: ['finisher'],
+      themes_supported: ['tokens', 'tribal'],
+      role_in_deck: 'wincon',
+      idealCards: 4,
+    }));
+  }
+
+  // Spellslinger
+  if (themes.has('spellslinger') || /whenever you cast.*instant|whenever you cast.*sorcery|magecraft|storm|copy.*spell/i.test(oracle)) {
+    archetypes.push(mk('Spell Density', {
+      requires: ['instant', 'sorcery'],
+      typePatterns: ['instant', 'sorcery'],
+      roleFlags: ['interaction', 'draw'],
+      themes_supported: ['spellslinger'],
+      role_in_deck: 'engine',
+      idealCards: 10,
+    }));
+    archetypes.push(mk('Spell Payoffs', {
+      requires: ['whenever you cast.*instant', 'whenever you cast.*sorcery', 'magecraft', 'storm', 'prowess', 'copy.*spell'],
+      typePatterns: [],
+      roleFlags: ['synergy', 'finisher'],
+      themes_supported: ['spellslinger'],
+      role_in_deck: 'wincon',
+      idealCards: 5,
+    }));
+  }
+
+  // Blink
+  if (themes.has('blink') || /exile.*return.*battlefield|flicker|blink/i.test(oracle)) {
+    archetypes.push(mk('Blink Engine', {
+      requires: ['exile.*return.*battlefield', 'flicker', 'blink', 'conjurer\'s closet'],
+      typePatterns: [],
+      roleFlags: ['synergy'],
+      themes_supported: ['blink'],
+      role_in_deck: 'engine',
+      idealCards: 6,
+    }));
+    archetypes.push(mk('ETB Value', {
+      requires: ['enters the battlefield', 'when.*enters', 'whenever.*enters'],
+      typePatterns: [],
+      roleFlags: ['synergy', 'value'],
+      themes_supported: ['blink', 'graveyard'],
+      role_in_deck: 'synergy',
+      idealCards: 10,
+    }));
+  }
+
+  // Counters
+  if (themes.has('counters') || /\\+1\\/\\+1 counter|proliferate|adapt|evolve|bolster|toxic|infect/i.test(oracle)) {
+    archetypes.push(mk('Counter Engine', {
+      requires: ['+1/+1 counter', 'proliferate', 'adapt', 'evolve', 'bolster', 'support'],
+      typePatterns: [],
+      roleFlags: ['synergy'],
+      themes_supported: ['counters'],
+      role_in_deck: 'engine',
+    }));
+  }
+
+  // Voltron
+  if (themes.has('voltron') || /equipment|aura|attach|equip/i.test(oracle)) {
+    archetypes.push(mk('Commander Enhancement', {
+      requires: ['equipment', 'aura', 'attach', 'equip', 'double strike', 'hexproof', 'ward', 'menace'],
+      typePatterns: ['equipment', 'aura', 'enchantment'],
+      roleFlags: ['protection'],
+      themes_supported: ['voltron'],
+      role_in_deck: 'engine',
+      idealCards: 6,
+    }));
+  }
+
+  // Damage
+  if (themes.has('damage') || /deal.*damage|each opponent loses|burn|ping/i.test(oracle)) {
+    archetypes.push(mk('Burn Engine', {
+      requires: ['deal.*damage', 'each opponent loses', 'ping', 'whenever.*damage'],
+      typePatterns: [],
+      roleFlags: ['synergy', 'finisher'],
+      themes_supported: ['damage'],
+      role_in_deck: 'wincon',
+      idealCards: 5,
+    }));
+  }
+
+  // Draw synergies
+  if (themes.has('draw') || /draw.*card|whenever you draw|wheel/i.test(oracle)) {
+    archetypes.push(mk('Draw Engine', {
+      requires: ['draw.*card', 'whenever you draw', 'wheel', 'connive', 'loot'],
+      typePatterns: [],
+      roleFlags: ['draw'],
+      themes_supported: ['draw'],
+      role_in_deck: 'engine',
+      idealCards: 6,
+    }));
+  }
+
+  // Landfall
+  if (themes.has('landfall') || /landfall|whenever a land enters/i.test(oracle)) {
+    archetypes.push(mk('Landfall Engine', {
+      requires: ['landfall', 'whenever.*land enters', 'play.*additional.*land'],
+      typePatterns: [],
+      roleFlags: ['synergy', 'value'],
+      themes_supported: ['landfall'],
+      role_in_deck: 'engine',
+      idealCards: 7,
+    }));
+  }
+
+  // Artifacts
+  if (themes.has('artifacts') || /artifact.*you control|affinity|improvise/i.test(oracle)) {
+    archetypes.push(mk('Artifact Engine', {
+      requires: ['artifact', 'treasure', 'clue', 'food', 'affinity', 'improvise'],
+      typePatterns: ['artifact'],
+      roleFlags: ['synergy'],
+      themes_supported: ['artifacts'],
+      role_in_deck: 'engine',
+    }));
+  }
+
+  // Enchantments
+  if (themes.has('enchantments') || /enchantment|constellation|enchant/i.test(oracle)) {
+    archetypes.push(mk('Enchantment Engine', {
+      requires: ['enchantment', 'constellation', 'enchant', 'aura'],
+      typePatterns: ['enchantment', 'aura'],
+      roleFlags: ['synergy'],
+      themes_supported: ['enchantments'],
+      role_in_deck: 'engine',
+    }));
+  }
+
+  // Commander-specific keyword archetypes
+  if (/evoke/i.test(oracle)) {
+    archetypes.push(mk('Evoke Engine', {
+      requires: ['evoke', 'whenever.*evoke'],
+      typePatterns: [],
+      roleFlags: ['synergy'],
+      themes_supported: ['graveyard', 'tribal'],
+      role_in_deck: 'engine',
+      idealCards: 5,
+    }));
+  }
+  if (cmdAnalysis.wants.includes('etb') || /enters the battlefield|when.*enters|whenever.*enters/i.test(oracle)) {
+    archetypes.push(mk('ETB Value', {
+      requires: ['enters the battlefield', 'when.*enters', 'whenever.*enters'],
+      typePatterns: [],
+      roleFlags: ['synergy'],
+      themes_supported: ['blink', 'graveyard', 'tribal'],
+      role_in_deck: 'synergy',
+      idealCards: 10,
+    }));
+  }
+  if (cmdAnalysis.wants.includes('attack') || /attacks|combat damage/i.test(oracle)) {
+    archetypes.push(mk('Combat Finishers', {
+      requires: ['extra combat', 'creatures you control get', 'overrun', 'triumph of the hordes', 'whenever.*attacks'],
+      typePatterns: [],
+      roleFlags: ['finisher'],
+      themes_supported: ['damage', 'tribal'],
+      role_in_deck: 'wincon',
+      idealCards: 4,
+    }));
+  }
+
+  // Always add a generic recursion/value engine if none exist yet
+  if (archetypes.length < 6) {
+    archetypes.push(mk('Recursion Engine', {
+      requires: ['return.*graveyard', 'reanimate', 'unearth', 'flashback', 'disturb', 'escape', 'recover', 'buyback'],
+      typePatterns: [],
+      roleFlags: ['recursion'],
+      themes_supported: ['graveyard', 'sacrifice', 'spellslinger'],
+      role_in_deck: 'engine',
+      idealCards: 5,
+    }));
+    archetypes.push(mk('Value Engine', {
+      requires: ['draw a card', 'scry', 'surveil', 'cascade', 'discover', 'investigate', 'venture', 'connive', 'learn', 'impulse'],
+      typePatterns: [],
+      roleFlags: ['value', 'draw'],
+      themes_supported: ['draw'],
+      role_in_deck: 'synergy',
+      idealCards: 6,
+    }));
+  }
+
+  // Deduplicate by name
+  const seen = new Set<string>();
+  return archetypes.filter((a) => {
+    const key = a.name.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function scoreCluster(
+  archetype: ClusterArchetype,
+  valid: CollectionEntry[],
+  getRoles: (entry: CollectionEntry) => import('./types').CardRoles,
+): ClusterCandidate | null {
+  const matches: CollectionEntry[] = [];
+
+  for (const entry of valid) {
+    const card = entry.scryfallData;
+    const oracle = getOracleText(card).toLowerCase();
+    const typeLine = getTypeLine(card).toLowerCase();
+    if (isLandCard(card)) continue;
+
+    let match = false;
+
+    // Check oracle-text patterns
+    for (const pat of archetype.requires) {
+      if (oracle.includes(pat)) { match = true; break; }
+    }
+
+    // Check type-line patterns
+    if (!match) {
+      for (const tp of archetype.typePatterns) {
+        if (typeLine.includes(tp.toLowerCase())) { match = true; break; }
+      }
+    }
+
+    // Check role flags
+    if (!match) {
+      const roles = getRoles(entry);
+      for (const flag of archetype.roleFlags) {
+        if (flag in roles && (roles as Record<string, unknown>)[flag]) { match = true; break; }
+      }
+    }
+
+    if (match) matches.push(entry);
+  }
+
+  if (matches.length < archetype.minCards) return null;
+
+  // Depth: 0–10 scale, more cards = higher depth
+  const depth = Math.min(10, matches.length / 2.5);
+
+  // Quality: average composite of top idealCards*2 matches
+  const ideal = archetype.idealCards * 2;
+  const topMatches = [...matches]
+    .sort((a, b) => b.scores.composite - a.scores.composite)
+    .slice(0, Math.max(ideal, archetype.minCards));
+  const avgComposite = topMatches.reduce((s, e) => s + e.scores.composite, 0) / topMatches.length;
+  const quality = Math.min(10, avgComposite / 9.0);
+
+  // Relevance: how many themes match * 3, capped at 10
+  const relevance = Math.min(10, archetype.themes_supported.length * 4 + (archetype.role_in_deck === 'wincon' ? 5 : 0));
+
+  const score = Math.round((depth * 1.5 + quality * 2.0 + relevance * 2.5) * 10) / 10;
+
+  return {
+    archetype,
+    cards: matches,
+    depth: Math.round(depth * 10) / 10,
+    quality: Math.round(quality * 10) / 10,
+    relevance: Math.round(relevance * 10) / 10,
+    score,
+  };
+}
+
+function selectClusters(
+  candidates: ClusterCandidate[],
+  cmdAnalysis: CommanderAnalysis,
+): ClusterCandidate[] {
+  if (!candidates.length) return [];
+
+  const sorted = [...candidates].sort((a, b) => b.score - a.score);
+  const selected: ClusterCandidate[] = [];
+  const coveredThemes = new Set<string>();
+  const needsWincon = true;
+
+  for (const candidate of sorted) {
+    if (selected.length >= 10) break;
+
+    // Preference for clusters whose cards overlap with already-selected clusters
+    let overlapBonus = 0;
+    if (selected.length > 0) {
+      const existingIds = new Set<string>();
+      for (const sc of selected) {
+        for (const c of sc.cards) existingIds.add(c.scryfallData.id);
+      }
+      for (const c of candidate.cards) {
+        if (existingIds.has(c.scryfallData.id)) overlapBonus++;
+      }
+    }
+
+    const effectiveScore = candidate.score + overlapBonus * 0.5;
+
+    // Select if we need wincon and this is one, or if we need theme coverage
+    const isWincon = candidate.archetype.role_in_deck === 'wincon';
+    const hasWincon = selected.some((s) => s.archetype.role_in_deck === 'wincon');
+    const addsNewTheme = candidate.archetype.themes_supported.some((t) => !coveredThemes.has(t));
+
+    if ((needsWincon && isWincon) || addsNewTheme || selected.length < 4) {
+      selected.push(candidate);
+      for (const t of candidate.archetype.themes_supported) coveredThemes.add(t);
+    } else if (overlapBonus >= 3 && selected.length < 10) {
+      selected.push(candidate);
+    }
+  }
+
+  // If we still have no wincon, force the highest-scored wincon in
+  if (!selected.some((s) => s.archetype.role_in_deck === 'wincon')) {
+    const bestWincon = sorted.find((s) => s.archetype.role_in_deck === 'wincon');
+    if (bestWincon && !selected.includes(bestWincon)) {
+      selected.push(bestWincon);
+    }
+  }
+
+  // Deduplicate
+  const seen = new Set<ClusterCandidate>();
+  return selected.filter((s) => { const dup = seen.has(s); seen.add(s); return !dup; });
 }
 
 function computePipWeight(entries: CollectionEntry[]): Record<string, number> {
@@ -507,79 +954,132 @@ export function buildOptimalDeck(
     return true;
   };
 
-  const winConditions = identifyWinConditions(valid, cmdAnalysis);
-  for (const win of winConditions) {
-    const ranked = [...win.cards].sort(
-      (a, b) =>
-        (b.scores.composite + getRoles(b).themeHits.length * 10) -
-        (a.scores.composite + getRoles(a).themeHits.length * 10),
-    );
-    for (const entry of ranked.slice(0, 4)) {
-      addEntry(entry, 'Combo Pieces', `Supports ${win.type} finish`);
+  // === CLUSTER-FIRST BUILDING ===
+  // Phase 1: Derive and score cluster archetypes
+  const allArchetypes = deriveClusterArchetypes(cmdAnalysis);
+  const candidates: ClusterCandidate[] = [];
+  for (const archetype of allArchetypes) {
+    const result = scoreCluster(archetype, valid, getRoles);
+    if (result) candidates.push(result);
+  }
+
+  // Phase 2: Select top clusters
+  const selectedClusters = selectClusters(candidates, cmdAnalysis);
+
+  // Log cluster selection
+  console.log('[Cluster] Selected clusters:');
+  for (const cluster of selectedClusters) {
+    console.log(`  "${cluster.archetype.name}" depth=${cluster.depth} quality=${cluster.quality} relevance=${cluster.relevance} score=${cluster.score} role=${cluster.archetype.role_in_deck} (${cluster.cards.length} cards)`);
+  }
+
+  // Phase 3: Allocate non-land slots across clusters
+  const totalScore = selectedClusters.reduce((s, c) => s + c.score, 0);
+  const nonLandTarget = 99 - blueprint.lands;
+  let clusterSlotsAllocated = 0;
+  const clusterAlloc: Map<ClusterCandidate, number> = new Map();
+
+  if (selectedClusters.length > 0 && totalScore > 0) {
+    for (const cluster of selectedClusters) {
+      const idealShare = Math.round((cluster.score / totalScore) * nonLandTarget * 0.7); // 70% to clusters
+      const capped = Math.min(idealShare, cluster.archetype.idealCards);
+      clusterAlloc.set(cluster, Math.max(Math.min(cluster.archetype.minCards, cluster.cards.length), capped));
+      clusterSlotsAllocated += clusterAlloc.get(cluster)!;
     }
   }
 
-  const isGoodstuff = cmdAnalysis.themes.length === 1 && cmdAnalysis.themes[0] === 'goodstuff';
+  // Phase 4: Fill each cluster with its best cards
+  const clusterCardIds = new Map<string, ClusterCandidate[]>();
+  for (const cluster of selectedClusters) {
+    const alloc = clusterAlloc.get(cluster) || 0;
+    if (alloc <= 0) continue;
+    const ranked = [...cluster.cards].sort((a, b) => b.scores.composite - a.scores.composite);
+    let added = 0;
+    for (const entry of ranked) {
+      if (added >= alloc) break;
+      const card = entry.scryfallData;
+      const key = getDeckCardKey(card);
 
-  let anchorPool: CollectionEntry[];
-  if (isGoodstuff) {
-    anchorPool = valid
-      .filter((entry) => !selectedKeys.has(getDeckCardKey(entry.scryfallData)))
-      .sort((a, b) => b.scores.composite - a.scores.composite);
-  } else {
-    anchorPool = valid
-      .filter((entry) => {
-        const key = getDeckCardKey(entry.scryfallData);
-        return !selectedKeys.has(key) && getRoles(entry).themeHits.length > 0;
-      })
-      .sort((a, b) => {
-        const aRed = scoreRedundancy(a, cmdAnalysis).bonus;
-        const bRed = scoreRedundancy(b, cmdAnalysis).bonus;
-        return (b.scores.composite + getRoles(b).themeHits.length * 10 + bRed * 2) -
-               (a.scores.composite + getRoles(a).themeHits.length * 10 + aRed * 2);
-      });
-  }
-  for (const entry of anchorPool.slice(0, Math.min(8, 4 + cmdAnalysis.themes.length * 2))) {
-    const themeList = getRoles(entry).themeHits;
-    addEntry(entry, themeList.length > 1 ? 'Redundancy Package' : 'Synergy Pieces',
-      `High-fit ${themeList.join(', ') || 'score'} anchor`);
-  }
+      // Avoid overlap with already-added cluster cards unless overlapping is beneficial
+      if (selectedKeys.has(key) || cardIds.includes(card.id)) {
+        if (isLandCard(card)) continue;
+        if (added < alloc) {
+          // Still allow if this is an overlapping card (serves 2+ clusters)
+          let inOtherClusters = 0;
+          for (const sc of selectedClusters) {
+            if (sc === cluster) continue;
+            if (sc.cards.some((c) => c.scryfallData.id === card.id)) inOtherClusters++;
+          }
+          if (inOtherClusters === 0) continue; // Pure duplicate, skip
+          // Otherwise it's overlapping — still addable
+        }
+      }
 
-  const tutorPool = valid
-    .filter((entry) => {
-      const key = getDeckCardKey(entry.scryfallData);
-      return !selectedKeys.has(key) && getRoles(entry).tutor;
-    })
-    .slice(0, blueprint.tutors);
-  for (const entry of tutorPool) addEntry(entry, 'Tutors', 'Finds the best card for the current board');
-
-  const protectionPool = valid
-    .filter((entry) => {
-      const key = getDeckCardKey(entry.scryfallData);
-      return !selectedKeys.has(key) && getRoles(entry).protection;
-    })
-    .sort((a, b) => b.scores.composite - a.scores.composite)
-    .slice(0, Math.max(1, blueprint.protection - 1));
-  for (const entry of protectionPool) addEntry(entry, 'Protection', 'Defends commander and key engine pieces');
-
-  // === PHASE 5: Nonland fill (skip lands — actual spells first) ===
-  let safety = 0;
-  const nonLandTarget = 99 - blueprint.lands;
-  while (cardIds.length < nonLandTarget && safety < 260) {
-    safety++;
-    const profile = buildDeckProfile(entriesInDeck, cmdAnalysis, getRoles);
-
-    const candidates: CollectionEntry[] = [];
-    for (const entry of valid) {
-      if (!selectedKeys.has(getDeckCardKey(entry.scryfallData))) {
-        candidates.push(entry);
-        if (candidates.length >= 250) break;
+      if (addEntry(entry, cluster.archetype.name, `${cluster.archetype.role_in_deck} for "${cluster.archetype.name}" cluster`)) {
+        added++;
+        const clusters = clusterCardIds.get(card.id) || [];
+        clusters.push(cluster);
+        clusterCardIds.set(card.id, clusters);
       }
     }
-    if (!candidates.length) break;
+  }
+
+  // Phase 5: Compute cluster overlap score
+  let overlapCount = 0;
+  for (const [, clusters] of clusterCardIds) {
+    if (clusters.length >= 2) overlapCount++;
+  }
+  console.log(`[Cluster] overlap: ${overlapCount} cards serve 2+ clusters`);
+
+  // Phase 6: Fill support slots (tutors, protection, then role-based fill)
+  const supportSlotsTarget = nonLandTarget - cardIds.length;
+
+  // Tutors
+  if (blueprint.tutors > 0) {
+    const tutorCandidates = valid
+      .filter((entry) => {
+        const key = getDeckCardKey(entry.scryfallData);
+        return !selectedKeys.has(key) && getRoles(entry).tutor && !isLandCard(entry.scryfallData);
+      })
+      .sort((a, b) => b.scores.composite - a.scores.composite);
+    for (const entry of tutorCandidates.slice(0, blueprint.tutors)) {
+      if (cardIds.length >= nonLandTarget) break;
+      addEntry(entry, 'Tutors', 'Finds the best card for the current board');
+    }
+  }
+
+  // Protection
+  if (blueprint.protection > 0) {
+    const protCandidates = valid
+      .filter((entry) => {
+        const key = getDeckCardKey(entry.scryfallData);
+        return !selectedKeys.has(key) && getRoles(entry).protection && !isLandCard(entry.scryfallData);
+      })
+      .sort((a, b) => b.scores.composite - a.scores.composite)
+      .slice(0, Math.max(1, blueprint.protection - 1));
+    for (const entry of protCandidates) {
+      if (cardIds.length >= nonLandTarget) break;
+      addEntry(entry, 'Protection', 'Defends commander and key engine pieces');
+    }
+  }
+
+  // Phase 7: Role-aware fill for remaining non-land slots
+  // Use a single-pass greedy fill like the old approach, but prioritize cards that fill blueprint gaps
+  let fillSafety = 0;
+  while (cardIds.length < nonLandTarget && fillSafety < 260) {
+    fillSafety++;
+    const profile = buildDeckProfile(entriesInDeck, cmdAnalysis, getRoles);
+
+    const fillCandidates: CollectionEntry[] = [];
+    for (const entry of valid) {
+      if (!selectedKeys.has(getDeckCardKey(entry.scryfallData))) {
+        fillCandidates.push(entry);
+        if (fillCandidates.length >= 250) break;
+      }
+    }
+    if (!fillCandidates.length) break;
 
     let best: { entry: CollectionEntry; score: number; role: string; reason: string } | null = null;
-    for (const entry of candidates) {
+    for (const entry of fillCandidates) {
       if (getRoles(entry).land) continue;
       const scored = scoreCandidateForDeck(entry, profile, blueprint, cmdAnalysis, getRoles);
       if (scored && (!best || scored.score > best.score)) best = { entry, ...scored };
@@ -589,7 +1089,10 @@ export function buildOptimalDeck(
     addEntry(best.entry, best.role, best.reason);
   }
 
-  // === PHASE 6: Compute pip-weight from actual selected nonland cards ===
+  // Track selected clusters for game plan
+  const finalClusters = selectedClusters;
+
+  // === PHASE 8: Compute pip-weight from actual selected nonland cards ===
   const pipWeight = computePipWeight(entriesInDeck);
   for (const c of cmdAnalysis.ci) {
     if (!pipWeight[c] || pipWeight[c] === 0) pipWeight[c] = 1;
@@ -686,7 +1189,7 @@ export function buildOptimalDeck(
   return {
     cardIds: repaired.cardIds,
     roles: repaired.roles,
-    gamePlan: describeGamePlan(cmdAnalysis),
+    gamePlan: describeGamePlan(cmdAnalysis, finalClusters),
   };
 }
 
