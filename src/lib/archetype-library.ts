@@ -236,7 +236,7 @@ export const ARCHETYPE_LIBRARY: ArchetypeEntry[] = [
     sub_roles: [
       {
         key: 'GRAVE_FILLERS', name: 'Grave Fillers', optional: false, ideal: 4, minimum: 3,
-        predicate: '\\bmill\\b|\\bself-mill\\b|put .{0,30}top .{0,30}cards? .{0,30}of your library into .{0,20}graveyard|draws? \\w+ cards?.{0,30} (?:then|and) discards?|discard your hand|\\bdiscard\\b.{0,20}(?:your |\\w+ cards?|all)|sacrifice (?:a|another|target) .{0,20}creature.{0,20}:|\\bdredge\\b',
+        predicate: '\\bmill\\b|\\bself-mill\\b|put .{0,30}top .{0,30}cards? .{0,30}of your library into .{0,20}graveyard|draws? \\w+ cards?.{0,30} (?:then|and) discards?|discard your hand|\\bdiscard\\b.{0,20}(?:your |each|all)|sacrifice (?:a|another|target) .{0,20}creature.{0,20}:|\\bdredge\\b',
         example_cards: ['Buried Alive', 'Stitcher\'s Supplier', 'Champion of Wits', 'Hermit Druid', 'Faithless Looting', 'Liliana of the Veil', 'Mesmeric Orb', 'Otrimi the Ever-Playful', 'Viscera Seer'],
         example_rejects: ['Gate to the Afterlife', 'Animate Dead'],
       },
@@ -611,7 +611,7 @@ export const ARCHETYPE_LIBRARY: ArchetypeEntry[] = [
     category: 'enabler',
     required_colors: [],
     commander_signals: [/graveyard|mill|discard|dies|sacrifice/i],
-    card_predicate: /\bmills?\b|\bself-mill\b|put the top .{0,30}cards?.{0,30}into.{0,20}(?:your |the )?graveyard|draws? \w+ cards?.{0,30} (?:then|and) discards?|discard your hand|\bdiscard\b.{0,20}(?:your |\w+ cards?|all)|cycling|(?:search|reveal).{0,60}into.{0,20}(?:your|a) graveyard/i,
+    card_predicate: /\bmills?\b|\bself-mill\b|put the top .{0,30}cards?.{0,30}into.{0,20}(?:your |the )?graveyard|draws? \w+ cards?.{0,30} (?:then|and) discards?|discard your hand|\bdiscard\b.{0,20}(?:your |each|all)|cycling|(?:search|reveal).{0,60}into.{0,20}(?:your|a) graveyard/i,
     exclusions: null,
     ideal_count: 8,
     always_proposed: false,
