@@ -104,7 +104,7 @@ function describeGamePlan(cmdAnalysis: CommanderAnalysis, results?: ClusterResul
 
 function buildPredicate(entry: ArchetypeEntry): (e: CollectionEntry) => boolean {
   return (e: CollectionEntry) => {
-    const oracle = getOracleText(e.scryfallData).toLowerCase();
+    const oracle = getOracleText(e.scryfallData).toLowerCase().replace(/\n/g, ' ');
     const typeLine = getTypeLine(e.scryfallData).toLowerCase();
     if (!entry.card_predicate.test(oracle)) {
       // Also test against type_line context
@@ -117,11 +117,11 @@ function buildPredicate(entry: ArchetypeEntry): (e: CollectionEntry) => boolean 
 
 function buildExclusions(entry: ArchetypeEntry): ((e: CollectionEntry) => boolean) | null {
   if (!entry.exclusions) return null;
-  return (e: CollectionEntry) => getOracleText(e.scryfallData).toLowerCase().match(entry.exclusions!) !== null;
+  return (e: CollectionEntry) => getOracleText(e.scryfallData).toLowerCase().replace(/\n/g, ' ').match(entry.exclusions!) !== null;
 }
 
 function logClusterMatch(archetype: ClusterArchetype, entry: CollectionEntry): void {
-  const oracle = getOracleText(entry.scryfallData).toLowerCase();
+  const oracle = getOracleText(entry.scryfallData).toLowerCase().replace(/\n/g, ' ');
   const tl = getTypeLine(entry.scryfallData);
   let reason = 'card_predicate matched oracle_text';
   if (archetype.key === 'TRIBAL_DENSITY') {
@@ -224,13 +224,13 @@ function proposeArchetypes(
             const subtypes = subtypeMatch[1].trim().split(/\s+/).map(s => s.toLowerCase());
             if (subtypes.includes(tribeLower)) return true;
           }
-          const oracle = getOracleText(e.scryfallData).toLowerCase();
+          const oracle = getOracleText(e.scryfallData).toLowerCase().replace(/\n/g, ' ');
           return new RegExp(`\\bthis creature is (?:also )?an? ${tribeLower}\\b`, 'i').test(oracle)
             || /\bchangeling\b/i.test(oracle);
         };
       } else {
         predicateFn = (e: CollectionEntry) => {
-          const oracle = getOracleText(e.scryfallData).toLowerCase();
+          const oracle = getOracleText(e.scryfallData).toLowerCase().replace(/\n/g, ' ');
           return new RegExp(`\\b${tribeLower}s?\\b.{0,60}(you control|gets?|gain|\\+\\d|enters|attacks?|dies|cast|deals?|create|put|return)`, 'i').test(oracle)
             || new RegExp(`(create|put|return).{0,50}\\b${tribeLower}s?\\b`, 'i').test(oracle);
         };

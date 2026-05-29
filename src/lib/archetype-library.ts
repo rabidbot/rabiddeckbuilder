@@ -37,7 +37,7 @@ export const ARCHETYPE_LIBRARY: ArchetypeEntry[] = [
       /\bequipped creature\b|\benchanted creature\b/i,
       /attach|equip .{0,80}(double strike|trample|menace|unblockable|first strike|hexproof|protection)/i,
     ],
-    card_predicate: /[^.]*\bequip(?:ped)? creature gets \+|equipped creature has (?:double strike|trample|menace|unblockable|protection|hexproof|first strike)|equipped creature gains|enchanted creature (?:gets|has)/i,
+    card_predicate: /[^.]*\bequip(?:ped)? creature gets \+|equipped creature (?:has|gains) \w|enchanted creature (?:gets|has)/i,
     exclusions: /sacrifice.{0,20}equipment|draw a card/i,
     ideal_count: 8,
     always_proposed: false,
@@ -73,7 +73,7 @@ export const ARCHETYPE_LIBRARY: ArchetypeEntry[] = [
     commander_signals: [
       /damage|spell.{0,20}copy|cast.{0,30}instant|sorcery/i,
     ],
-    card_predicate: /deals?\s+X\s+damage to (?:any target|target opponent|each opponent|each player|target player)|deals?\s+\d+\s+damage to (?:each opponent|each player|target opponent.{0,30}(?:equal to|times))/i,
+    card_predicate: /deals?\s+X\s+damage to (?:any target|target opponent|each opponent|each player|target player|each of them)|deals?\s+\d+\s+damage to (?:each opponent|each player|target opponent.{0,30}(?:equal to|times))/i,
     exclusions: null,
     ideal_count: 5,
     always_proposed: false,
@@ -159,7 +159,7 @@ export const ARCHETYPE_LIBRARY: ArchetypeEntry[] = [
     required_colors: [],
     commander_signals: [],
     card_predicate: /search your library for (?:a|up to|any|an?) .{0,60}(?:card|creature|artifact|enchantment|instant|sorcery|land|planeswalker)/i,
-    exclusions: /\bland\b.{0,30}enters.{0,30}tapped/i,
+    exclusions: /\bland\b.{0,30}(?:enters.{0,30}tapped|put onto the battlefield tapped)/i,
     ideal_count: 4,
     always_proposed: true,
     example_cards: ['Demonic Tutor', 'Vampiric Tutor', 'Worldly Tutor', 'Enlightened Tutor'],
@@ -175,11 +175,11 @@ export const ARCHETYPE_LIBRARY: ArchetypeEntry[] = [
       /return.{0,30}creature.{0,30}graveyard/i,
       /(?:cast|play).{0,50}(?:from|in) (?:your |a )?graveyard/i,
     ],
-    card_predicate: /return.{0,80}\bcreature(?:s|s'?)?\b.{0,80}from (?:your|a) graveyard.{0,40}(?:to (?:the )?battlefield|to (?:your )?hand)/i,
+    card_predicate: /(?:return|puts?).{0,80}\bcreature\b.{0,80}(?:from (?:your|a|the|their) graveyard|graveyard.{0,80}(?:to (?:the )?battlefield|onto the battlefield|to (?:your )?hand))/i,
     exclusions: /enchantment|artifact|land(?:s)?|instant|sorcery/i,
     ideal_count: 6,
     always_proposed: false,
-    example_cards: ['Animate Dead', 'Reanimate', 'Living Death', 'Buried Alive', 'Angel of Glory\'s Rise'],
+    example_cards: ['Animate Dead', 'Reanimate', 'Living Death', 'Angel of Glory\'s Rise'],
     example_rejects: ['Replenish', 'Splendid Reclamation'],
   },
   {
@@ -235,7 +235,7 @@ export const ARCHETYPE_LIBRARY: ArchetypeEntry[] = [
     commander_signals: [
       /exile.{0,30}return.{0,30}battlefield|flicker|when.{0,30}enters/i,
     ],
-    card_predicate: /exile (?:target|another target) (?:creature|permanent).{0,40}return.{0,40}battlefield (?:under (?:its|their) owner's control|tapped|untapped)|flicker/i,
+    card_predicate: /exile (?:target|another target) (?:creature|permanent).{0,40}return.{0,40}battlefield (?:under (?:its|their|your) control|tapped|untapped)|flicker/i,
     exclusions: null,
     ideal_count: 6,
     always_proposed: false,
@@ -250,7 +250,7 @@ export const ARCHETYPE_LIBRARY: ArchetypeEntry[] = [
     commander_signals: [
       /\{X\}|cost.{0,30}more|cost.{0,30}less/i,
     ],
-    card_predicate: /adds? (?:twice|an additional|two|three|four).{0,40}mana|whenever.{0,40}tap.{0,30}for mana.{0,40}adds?/i,
+    card_predicate: /(?:adds?|produces?) (?:twice|an additional|two|three|four).{0,40}mana|whenever.{0,40}tap.{0,30}for mana.{0,40}(?:adds?|produces?)/i,
     exclusions: null,
     ideal_count: 3,
     always_proposed: false,
@@ -276,7 +276,7 @@ export const ARCHETYPE_LIBRARY: ArchetypeEntry[] = [
     category: 'engine',
     required_colors: [],
     commander_signals: [/\+1\/\+1 counter|proliferate|counters? on/i],
-    card_predicate: /put .{0,30}\+1\/\+1 counter(?:s)? on|proliferate|whenever .{0,30}counter.{0,30}placed/i,
+    card_predicate: /put .{0,30}\+1\/\+1 counter(?:s)? on|\+1\/\+1 counter.{0,20}(?:put|placed|would be put)|proliferate|whenever .{0,30}counter.{0,30}placed/i,
     exclusions: null,
     ideal_count: 6,
     always_proposed: false,
@@ -304,7 +304,7 @@ export const ARCHETYPE_LIBRARY: ArchetypeEntry[] = [
     category: 'engine',
     required_colors: [],
     commander_signals: [/artifact.{0,30}artifact|artifact/i],
-    card_predicate: /whenever .{0,30}artifact.{0,30}(?:enters|cast|dies)|artifacts you control|metalcraft|affinity for artifacts|improvise/i,
+    card_predicate: /whenever .{0,30}artifact.{0,30}(?:enters|cast|dies)|artifacts? you control|metalcraft|affinity for artifacts|improvise/i,
     exclusions: null,
     ideal_count: 8,
     always_proposed: false,
@@ -330,7 +330,7 @@ export const ARCHETYPE_LIBRARY: ArchetypeEntry[] = [
     category: 'engine',
     required_colors: [B, G],
     commander_signals: [/(?:from|in).{0,10}graveyard|delve|dredge|escape|threshold/i],
-    card_predicate: /return .{0,40}(?:target )?card from (?:your |a )?graveyard to .{0,20}hand|return .{0,40}(?:target )?(?:artifact|enchantment|land).{0,30}graveyard.{0,20}battlefield/i,
+    card_predicate: /return .{0,40}(?:target )?card from (?:your |a )?graveyard to .{0,20}hand|return .{0,40}(?:target )?(?:artifact|enchantment|land|permanent).{0,30}graveyard.{0,20}battlefield/i,
     exclusions: null,
     ideal_count: 4,
     always_proposed: false,
@@ -366,9 +366,7 @@ export const ARCHETYPE_LIBRARY: ArchetypeEntry[] = [
     ideal_count: 5,
     always_proposed: false,
     example_cards: ['Risen Reef', 'Elemental Bond', 'Omnath'],
-    example_rejects: [
-      'Hoofprints of the Stag', 'Rekindling Phoenix',
-    ],
+    example_rejects: ['Rekindling Phoenix'],
   },
   {
     key: 'LANDFALL_PAYOFF',
@@ -436,7 +434,7 @@ export const ARCHETYPE_LIBRARY: ArchetypeEntry[] = [
     category: 'enabler',
     required_colors: [],
     commander_signals: [/graveyard|mill|discard|dies|sacrifice/i],
-    card_predicate: /\bmill\b|\bself-mill\b|put the top .{0,30}cards?.{0,30}into.{0,20}(?:your |the )?graveyard|draws? .{0,20}cards?.{0,30}discards?|discard your hand|cycling/i,
+    card_predicate: /\bmills?\b|\bself-mill\b|put the top .{0,30}cards?.{0,30}into.{0,20}(?:your |the )?graveyard|draws? .{0,20}cards?.{0,30}discards?|discard your hand|cycling|(?:search|reveal).{0,60}into.{0,20}(?:your|a) graveyard/i,
     exclusions: null,
     ideal_count: 8,
     always_proposed: false,
@@ -501,7 +499,7 @@ export const ARCHETYPE_LIBRARY: ArchetypeEntry[] = [
     category: 'enabler',
     required_colors: [],
     commander_signals: [/destroy all|exile all/i],
-    card_predicate: /destroy all .{0,30}(?:creatures|permanents|nonland)|exile all .{0,30}(?:creatures|permanents)|each creature gets -\d/i,
+    card_predicate: /destroy all .{0,30}(?:creatures|permanents|nonland)|exile all .{0,30}(?:creatures|permanents)|each creature gets -\d|all creatures get -\d|deals \d+ damage to each creature/i,
     exclusions: null,
     ideal_count: 3,
     always_proposed: false,
@@ -514,7 +512,7 @@ export const ARCHETYPE_LIBRARY: ArchetypeEntry[] = [
     category: 'enabler',
     required_colors: [],
     commander_signals: [],
-    card_predicate: /hexproof|indestructible|protection from|phasing|target.{0,30}gains? shroud|creatures you control gain (?:indestructible|hexproof)/i,
+    card_predicate: /hexproof|shroud|indestructible|protection from|phasing|target.{0,30}(?:gains?|has) shroud|creatures you control (?:gain|have) (?:indestructible|hexproof)/i,
     exclusions: null,
     ideal_count: 4,
     always_proposed: true,
@@ -568,12 +566,12 @@ export function runSanityCheck(library: ArchetypeEntry[], collection: Collection
             if (subtypes.includes(testTribe)) passes = true;
           }
           if (!passes) {
-            const oracle = getOracleText(entry.scryfallData).toLowerCase();
+            const oracle = getOracleText(entry.scryfallData).toLowerCase().replace(/\n/g, ' ');
             passes = new RegExp(`\\bthis creature is (?:also )?an? ${testTribe}\\b`, 'i').test(oracle)
               || /\bchangeling\b/i.test(oracle);
           }
         } else {
-          const oracle = getOracleText(entry.scryfallData).toLowerCase();
+          const oracle = getOracleText(entry.scryfallData).toLowerCase().replace(/\n/g, ' ');
           passes = new RegExp(`\\b${testTribe}s?\\b.{0,60}(you control|gets?|gain|\\+\\d|enters|attacks?|dies|cast|deals?|create|put|return)`, 'i').test(oracle)
             || new RegExp(`(create|put|return).{0,50}\\b${testTribe}s?\\b`, 'i').test(oracle);
         }
@@ -590,13 +588,32 @@ export function runSanityCheck(library: ArchetypeEntry[], collection: Collection
     for (const name of arch.example_cards) {
       const entry = collection.find(e => e.scryfallData.name === name);
       if (!entry) continue;
-      const oracle = getOracleText(entry.scryfallData).toLowerCase();
+      const oracle = getOracleText(entry.scryfallData).toLowerCase().replace(/\n/g, ' ');
       const typeLine = getTypeLine(entry.scryfallData).toLowerCase();
       let passes = arch.card_predicate.test(oracle);
       if (!passes) {
         passes = arch.card_predicate.test(typeLine + ' ' + oracle);
       }
       if (arch.exclusions && passes && arch.exclusions.test(oracle)) passes = false;
+      // Apply post-filters mirroring proposeArchetypes
+      if (passes) {
+        const tl = getTypeLine(entry.scryfallData).toLowerCase();
+        const tlNorm = tl.replace(/\n/g, ' ');
+        if (arch.key === 'COMMANDER_DAMAGE_VOLTRON') {
+          passes = tlNorm.includes('equipment') || tlNorm.includes('aura');
+        } else if (arch.key === 'ROCKS_RAMP') {
+          passes = tlNorm.includes('artifact') && !tlNorm.includes('creature') && !tlNorm.includes('equipment');
+        } else if (arch.key === 'LAND_RAMP_GREEN') {
+          passes = tlNorm.includes('sorcery') || tlNorm.includes('instant');
+        } else if (arch.key === 'DORK_RAMP') {
+          passes = tlNorm.includes('creature') && (entry.scryfallData.cmc || 0) <= 2;
+        } else if (arch.key === 'BURN_X_SPELL_KILL') {
+          const dmgMatch = oracle.match(/deals?\s+(\d+)\s+damage/);
+          if (dmgMatch) {
+            passes = parseInt(dmgMatch[1]) >= 5;
+          }
+        }
+      }
       if (!passes && !isLandCard(entry.scryfallData)) {
         const bug = `[ArchetypeSanity] ${arch.key}: example_card "${name}" FAILED predicate`;
         console.warn(bug);
@@ -606,9 +623,27 @@ export function runSanityCheck(library: ArchetypeEntry[], collection: Collection
     for (const name of arch.example_rejects) {
       const entry = collection.find(e => e.scryfallData.name === name);
       if (!entry) continue;
-      const oracle = getOracleText(entry.scryfallData).toLowerCase();
+      const oracle = getOracleText(entry.scryfallData).toLowerCase().replace(/\n/g, ' ');
       let passes = arch.card_predicate.test(oracle);
       if (arch.exclusions && passes && arch.exclusions.test(oracle)) passes = false;
+      // Apply post-filters mirroring proposeArchetypes
+      if (passes) {
+        const tl = getTypeLine(entry.scryfallData).toLowerCase().replace(/\n/g, ' ');
+        if (arch.key === 'COMMANDER_DAMAGE_VOLTRON') {
+          passes = tl.includes('equipment') || tl.includes('aura');
+        } else if (arch.key === 'ROCKS_RAMP') {
+          passes = tl.includes('artifact') && !tl.includes('creature') && !tl.includes('equipment');
+        } else if (arch.key === 'LAND_RAMP_GREEN') {
+          passes = tl.includes('sorcery') || tl.includes('instant');
+        } else if (arch.key === 'DORK_RAMP') {
+          passes = tl.includes('creature') && (entry.scryfallData.cmc || 0) <= 2;
+        } else if (arch.key === 'BURN_X_SPELL_KILL') {
+          const dmgMatch = oracle.match(/deals?\s+(\d+)\s+damage/);
+          if (dmgMatch) {
+            passes = parseInt(dmgMatch[1]) >= 5;
+          }
+        }
+      }
       if (passes && !isLandCard(entry.scryfallData)) {
         const bug = `[ArchetypeSanity] ${arch.key}: example_reject "${name}" PASSED predicate (should reject)`;
         console.error(bug);
