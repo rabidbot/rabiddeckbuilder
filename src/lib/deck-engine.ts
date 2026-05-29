@@ -43,6 +43,14 @@ interface SubRoleFill {
   budgetSkipped?: boolean;
 }
 
+interface DensityEntry {
+  name: string;
+  density: number;
+  clusterNames: string[];
+  subRoleDetails: string[];
+  richnessRoles: string[];
+}
+
 interface ArchetypeDiagnostic {
   key: string;
   display_name: string;
@@ -53,7 +61,7 @@ interface ArchetypeDiagnostic {
   reason: string;
 }
 
-function describeGamePlan(cmdAnalysis: CommanderAnalysis, results?: ClusterResult[], diagnostics?: ArchetypeDiagnostic[]): string {
+function describeGamePlan(cmdAnalysis: CommanderAnalysis, results?: ClusterResult[], diagnostics?: ArchetypeDiagnostic[], densityEntries?: DensityEntry[]): string {
   console.log("CLUSTER-CONTENTS v1");
   if (!results || !results.length) {
     const primary = cmdAnalysis.themes.slice(0, 2).map((t) => t[0].toUpperCase() + t.slice(1));
@@ -145,6 +153,27 @@ function describeGamePlan(cmdAnalysis: CommanderAnalysis, results?: ClusterResul
     }
     if (gapLines.length > 0) {
       parts.push(`COLLECTION GAPS:\n${gapLines.join('\n')}`);
+    }
+  }
+
+  // Synergy Density (top contributors)
+  if (densityEntries && densityEntries.length > 0) {
+    const topEntries = densityEntries.filter(e => e.density >= 2).slice(0, 10);
+    if (topEntries.length > 0) {
+      const densityLines: string[] = [];
+      for (const e of topEntries) {
+        const clusterStr = e.clusterNames.join(', ');
+        const roleStr = e.subRoleDetails.length ? ` [${e.subRoleDetails.join(', ')}]` : '';
+        const richnessStr = e.richnessRoles.length ? ` +${e.richnessRoles.join(', ')} richness` : '';
+        densityLines.push(`  ${e.name}: density ${e.density} ${clusterStr}${roleStr}${richnessStr}`);
+      }
+      parts.push(`Synergy Density (top contributors):\n${densityLines.join('\n')}`);
+      const avg = Math.round(densityEntries.reduce((s, e) => s + e.density, 0) * 10 / densityEntries.length) / 10;
+      const sorted = [...densityEntries].sort((a, b) => b.density - a.density);
+      const quartileIdx = Math.max(1, Math.round(sorted.length * 0.25));
+      const quartileVal = sorted[Math.min(quartileIdx - 1, sorted.length - 1)].density;
+      const grade = avg >= 7 ? 'TIGHT' : avg >= 4 ? 'MODERATE' : 'LOOSE';
+      parts.push(`Average synergy density: ${avg}. Top quartile: ${quartileVal}+. This is a ${grade} build.`);
     }
   }
 
@@ -336,6 +365,102 @@ function computeSubRoleBonuses(card: CollectionEntry, compiled: CompiledSubRole[
   if (hasBelowMin) return 12;
   if (hasBelowIdeal) return 6;
   return 0;
+}
+
+const SUBROLE_FLAG_COVERAGE: Record<string, string[]> = {
+  GRAVE_FILLERS: ['recursion'],
+  REANIMATORS: ['recursion'],
+  TARGETS: [],
+  TOKEN_PRODUCERS: ['tokens'],
+  ANTHEMS: [],
+  CLOSERS: ['finisher'],
+  X_SPELLS: ['finisher'],
+  RITUALS_AND_BIG_MANA: ['ramp'],
+  COPY_EFFECTS: [],
+  PAYOFFS: ['finisher'],
+  CHEAP_SPELL_DENSITY: [],
+  COPY_RECUR: [],
+  TRIBE_BODIES: [],
+  TRIBAL_LORDS: [],
+  TRIBAL_ENABLERS: [],
+  OUTLETS: [],
+  FODDER: ['tokens'],
+  AFTERMATH_PAYOFFS: ['finisher'],
+  COUNTER_PLACERS: [],
+  PROLIFERATE_ENGINES: [],
+  COUNTER_PAYOFFS: ['finisher'],
+  BLINK_EFFECTS: [],
+  ETB_VALUE_TARGETS: ['value'],
+  TREASURE_MAKERS: ['ramp'],
+  TREASURE_PAYOFFS: ['finisher'],
+};
+
+function computeSynergyDensity(
+  selectedArchetypes: ClusterArchetype[],
+  valid: CollectionEntry[],
+  getRoles: (entry: CollectionEntry) => import('./types').CardRoles,
+  cardToSubRoleKeys: Map<string, Set<string>>,
+): Map<string, number> {
+  const densityScores = new Map<string, number>();
+  const allSelectedKeys = new Set(selectedArchetypes.map(a => a.key));
+
+  // Build cluster eligibility pools
+  const clusterPools = new Map<string, Set<string>>();
+  for (const a of selectedArchetypes) {
+    const pool = new Set<string>();
+    for (const e of valid) {
+      if (isLandCard(e.scryfallData)) continue;
+      if (a.matches(e, getRoles) && (!a.exclusions || !a.exclusions(e))) {
+        pool.add(e.scryfallData.id);
+      }
+    }
+    clusterPools.set(a.key, pool);
+  }
+
+  for (const entry of valid) {
+    if (isLandCard(entry.scryfallData)) continue;
+    const cardId = entry.scryfallData.id;
+
+    // Cluster membership
+    const clusters: string[] = [];
+    for (const a of selectedArchetypes) {
+      const pool = clusterPools.get(a.key);
+      if (pool?.has(cardId)) clusters.push(a.key);
+    }
+    if (!clusters.length) continue;
+
+    // Sub-role membership
+    const subRoles = cardToSubRoleKeys.get(cardId) || new Set();
+
+    // Bridging: unordered pairs, sole shared card
+    let bridging = 0;
+    for (let i = 0; i < clusters.length; i++) {
+      for (let j = i + 1; j < clusters.length; j++) {
+        const poolA = clusterPools.get(clusters[i])!;
+        const poolB = clusterPools.get(clusters[j])!;
+        const intersection = [...poolA].filter(id => poolB.has(id));
+        if (intersection.length === 1 && intersection[0] === cardId) {
+          bridging++;
+        }
+      }
+    }
+
+    // Richness: role flags not covered by sub-roles
+    const roles = getRoles(entry);
+    const flagNames = ['ramp', 'draw', 'interaction', 'protection', 'recursion', 'tutor', 'finisher', 'tokens', 'synergy', 'value', 'wipe'] as const;
+    const activeFlags = flagNames.filter(f => !!(roles as Record<string, boolean>)[f]);
+    const coveredFlags = new Set<string>();
+    for (const srKey of subRoles) {
+      const covers = SUBROLE_FLAG_COVERAGE[srKey] || [];
+      for (const cf of covers) coveredFlags.add(cf);
+    }
+    const richness = Math.max(0, activeFlags.length - coveredFlags.size);
+
+    const density = Math.min(30, clusters.length * 4 + subRoles.size * 2 + bridging * 6 + richness);
+    densityScores.set(cardId, density);
+  }
+
+  return densityScores;
 }
 
 function proposeArchetypes(
@@ -1234,6 +1359,26 @@ export function buildOptimalDeck(
     clusterAlloc.set(a, alloc);
   }
 
+  // Phase 2.5: Compile sub-roles globally and compute synergy density
+  const allCompiledByCluster = new Map<string, CompiledSubRole[]>();
+  const globalCardToSubRoleKeys = new Map<string, Set<string>>();
+  for (const a of selectedArchetypes) {
+    const tribalTribe = a.display_name.match(/\(([^)]+)\)/)?.[1];
+    const libEntry = ARCHETYPE_LIBRARY.find(e => e.key === a.key);
+    const compiled = libEntry?.sub_roles ? compileSubRoles(libEntry, tribalTribe) : [];
+    allCompiledByCluster.set(a.key, compiled);
+    if (compiled.length === 0) continue;
+    const qualifying = valid.filter(e => !isLandCard(e.scryfallData) && a.matches(e, getRoles) && (!a.exclusions || !a.exclusions(e)));
+    for (const entry of qualifying) {
+      let keys = globalCardToSubRoleKeys.get(entry.scryfallData.id);
+      if (!keys) { keys = new Set(); globalCardToSubRoleKeys.set(entry.scryfallData.id, keys); }
+      for (const c of compiled) {
+        if (c.predicate(entry)) keys.add(`${a.key}:${c.key}`);
+      }
+    }
+  }
+  const densityScores = computeSynergyDensity(selectedArchetypes, valid, getRoles, globalCardToSubRoleKeys);
+
   // Phase 3: Fill each cluster with its best cards
   const clusterResults: ClusterResult[] = [];
   const clusterCardIds = new Map<string, ClusterArchetype[]>();
@@ -1242,19 +1387,17 @@ export function buildOptimalDeck(
     const qualifying = valid.filter(e => !isLandCard(e.scryfallData) && a.matches(e, getRoles) && (!a.exclusions || !a.exclusions(e)));
     const addedEntries: CollectionEntry[] = [];
     const addedIds = new Set<string>();
-    const tribalTribe = a.display_name.match(/\(([^)]+)\)/)?.[1];
-    const libEntry = ARCHETYPE_LIBRARY.find(e => e.key === a.key);
-    const compiledSubRoles = libEntry?.sub_roles ? compileSubRoles(libEntry, tribalTribe) : [];
+    const compiledSubRoles = allCompiledByCluster.get(a.key) || [];
 
     if (compiledSubRoles.length > 0) {
-      // Pre-classify each qualifying card into sub-roles
+      // Build card→sub-role keys filtered to this cluster
       const cardToRoleKeys = new Map<string, Set<string>>();
       for (const entry of qualifying) {
-        const roleKeys = new Set<string>();
-        for (const c of compiledSubRoles) {
-          if (c.predicate(entry)) roleKeys.add(c.key);
-        }
-        cardToRoleKeys.set(entry.scryfallData.id, roleKeys);
+        const allKeys = globalCardToSubRoleKeys.get(entry.scryfallData.id);
+        if (!allKeys) continue;
+        const filterPrefix = a.key + ':';
+        const filtered = new Set([...allKeys].filter(k => k.startsWith(filterPrefix)).map(k => k.slice(filterPrefix.length)));
+        if (filtered.size > 0) cardToRoleKeys.set(entry.scryfallData.id, filtered);
       }
       // Track sub-role fills
       const subRoleCards = new Map<string, CollectionEntry[]>();
@@ -1263,7 +1406,7 @@ export function buildOptimalDeck(
         subRoleCards.set(c.key, []);
         subRoleCounts.set(c.key, 0);
       }
-      // Greedy fill with sub-role priority
+      // Greedy fill with sub-role priority + density
       while (addedEntries.length < alloc) {
         let bestEntry: CollectionEntry | null = null;
         let bestScore = -Infinity;
@@ -1288,7 +1431,7 @@ export function buildOptimalDeck(
             if (current < c.minimum) bonus = Math.max(bonus, 12);
             else if (current < c.ideal) bonus = Math.max(bonus, 6);
           }
-          const score = entry.scores.composite + bonus;
+          const score = entry.scores.composite + bonus + (densityScores.get(card.id) || 0);
           if (score > bestScore) { bestEntry = entry; bestScore = score; }
         }
         if (!bestEntry) break;
@@ -1339,7 +1482,7 @@ export function buildOptimalDeck(
       });
     } else {
       // Original fill for clusters without sub-roles
-      const ranked = [...qualifying].sort((a, b) => b.scores.composite - a.scores.composite);
+    const ranked = [...qualifying].sort((a, b) => (b.scores.composite + (densityScores.get(b.scryfallData.id) || 0)) - (a.scores.composite + (densityScores.get(a.scryfallData.id) || 0)));
       for (const entry of ranked) {
         if (addedEntries.length >= alloc) break;
         const card = entry.scryfallData;
@@ -1403,7 +1546,10 @@ export function buildOptimalDeck(
     for (const entry of fillCandidates) {
       if (getRoles(entry).land) continue;
       const scored = scoreCandidateForDeck(entry, profile, blueprint, cmdAnalysis, getRoles);
-      if (scored && (!best || scored.score > best.score)) best = { entry, ...scored };
+      if (scored) {
+        const adjustedScore = scored.score + (densityScores.get(entry.scryfallData.id) || 0);
+        if (!best || adjustedScore > best.score) best = { entry, score: adjustedScore, role: scored.role, reason: scored.reason };
+      }
     }
     if (!best) break;
     addEntry(best.entry, best.role, best.reason);
@@ -1503,13 +1649,62 @@ export function buildOptimalDeck(
     }
   }
 
+  // Compute synergy density entries for the game plan
+  const densityEntries: DensityEntry[] = [];
+  const allAddedIds = new Set<string>();
+  for (const r of finalResults) {
+    for (const e of r.added) allAddedIds.add(e.scryfallData.id);
+  }
+  for (const id of allAddedIds) {
+    const density = densityScores.get(id) || 0;
+    if (density < 2) continue;
+    const entry = entriesInDeck.find(e => e.scryfallData.id === id) || valid.find(e => e.scryfallData.id === id);
+    if (!entry) continue;
+    const clusterNames: string[] = [];
+    const subRoleDetails: string[] = [];
+    const allKeys = globalCardToSubRoleKeys.get(id);
+    if (allKeys) {
+      const byCluster = new Map<string, string[]>();
+      for (const key of allKeys) {
+        const [ck, srk] = key.split(':');
+        if (!ck || !srk) continue;
+        let arr = byCluster.get(ck);
+        if (!arr) { arr = []; byCluster.set(ck, arr); }
+        arr.push(srk);
+      }
+      for (const [ck, roles] of byCluster) {
+        const cl = selectedArchetypes.find(a => a.key === ck);
+        if (cl) {
+          clusterNames.push(cl.display_name);
+          subRoleDetails.push(`${cl.display_name.split(' ')[0]} (${roles.join(', ')})`);
+        }
+      }
+    }
+    const roles = getRoles(entry);
+    const flagNames = ['ramp', 'draw', 'interaction', 'protection', 'recursion', 'tutor', 'finisher', 'tokens', 'synergy', 'value', 'wipe'] as const;
+    const activeFlags = flagNames.filter(f => !!(roles as Record<string, boolean>)[f]);
+    const coveredFlags = new Set<string>();
+    if (allKeys) for (const key of allKeys) {
+      const srk = key.split(':')[1];
+      if (srk) for (const cf of (SUBROLE_FLAG_COVERAGE[srk] || [])) coveredFlags.add(cf);
+    }
+    const richnessRoles = activeFlags.filter(f => !coveredFlags.has(f));
+    densityEntries.push({
+      name: entry.scryfallData.name,
+      density,
+      clusterNames,
+      subRoleDetails,
+      richnessRoles,
+    });
+  }
+
   const repaired = validateAndRepairDeck(
     cardIds, entriesInDeck, roles, selectedKeys, valid, commander.scryfallData,
   );
   return {
     cardIds: repaired.cardIds,
     roles: repaired.roles,
-    gamePlan: describeGamePlan(cmdAnalysis, finalResults, diagnostics),
+    gamePlan: describeGamePlan(cmdAnalysis, finalResults, diagnostics, densityEntries),
   };
 }
 
