@@ -46,6 +46,10 @@ interface SubRoleFill {
 interface DensityEntry {
   name: string;
   density: number;
+  clusterCount: number;
+  subRoleCount: number;
+  bridging: number;
+  richness: number;
   clusterNames: string[];
   subRoleDetails: string[];
   richnessRoles: string[];
@@ -162,10 +166,12 @@ function describeGamePlan(cmdAnalysis: CommanderAnalysis, results?: ClusterResul
     if (topEntries.length > 0) {
       const densityLines: string[] = [];
       for (const e of topEntries) {
-        const clusterStr = e.clusterNames.join(', ');
-        const roleStr = e.subRoleDetails.length ? ` [${e.subRoleDetails.join(', ')}]` : '';
-        const richnessStr = e.richnessRoles.length ? ` +${e.richnessRoles.join(', ')} richness` : '';
-        densityLines.push(`  ${e.name}: density ${e.density} ${clusterStr}${roleStr}${richnessStr}`);
+        const breakdown = `[clusters ${e.clusterCount}×5, sub-roles ${e.subRoleCount}×3, bridging ${e.bridging}×7, richness ${e.richness}]`;
+        densityLines.push(`  ${e.name}: density ${e.density} ${breakdown}`);
+        const detailParts: string[] = [];
+        if (e.subRoleDetails.length) detailParts.push(e.subRoleDetails.join(', '));
+        if (e.richnessRoles.length) detailParts.push(`+${e.richnessRoles.join(', ')}`);
+        if (detailParts.length) densityLines.push(`    ${detailParts.join(' ')}`);
       }
       parts.push(`Synergy Density (top contributors):\n${densityLines.join('\n')}`);
       const avg = Math.round(densityEntries.reduce((s, e) => s + e.density, 0) * 10 / densityEntries.length) / 10;
@@ -400,8 +406,9 @@ function computeSynergyDensity(
   valid: CollectionEntry[],
   getRoles: (entry: CollectionEntry) => import('./types').CardRoles,
   cardToSubRoleKeys: Map<string, Set<string>>,
-): Map<string, number> {
+): { scores: Map<string, number>; components: Map<string, { clusterCount: number; subRoleCount: number; bridging: number; richness: number }> } {
   const densityScores = new Map<string, number>();
+  const densityComponents = new Map<string, { clusterCount: number; subRoleCount: number; bridging: number; richness: number }>();
   const allSelectedKeys = new Set(selectedArchetypes.map(a => a.key));
 
   // Build cluster eligibility pools
@@ -454,13 +461,14 @@ function computeSynergyDensity(
       const covers = SUBROLE_FLAG_COVERAGE[srKey] || [];
       for (const cf of covers) coveredFlags.add(cf);
     }
-    const richness = Math.max(0, activeFlags.length - coveredFlags.size);
+    const richness = Math.min(3, Math.max(0, activeFlags.length - coveredFlags.size));
 
-    const density = Math.min(30, clusters.length * 4 + subRoles.size * 2 + bridging * 6 + richness);
+    const density = Math.min(30, clusters.length * 5 + subRoles.size * 3 + bridging * 7 + richness);
     densityScores.set(cardId, density);
+    densityComponents.set(cardId, { clusterCount: clusters.length, subRoleCount: subRoles.size, bridging, richness });
   }
 
-  return densityScores;
+  return { scores: densityScores, components: densityComponents };
 }
 
 function proposeArchetypes(
@@ -1377,7 +1385,7 @@ export function buildOptimalDeck(
       }
     }
   }
-  const densityScores = computeSynergyDensity(selectedArchetypes, valid, getRoles, globalCardToSubRoleKeys);
+  const { scores: densityScores, components: densityComponents } = computeSynergyDensity(selectedArchetypes, valid, getRoles, globalCardToSubRoleKeys);
 
   // Phase 3: Fill each cluster with its best cards
   const clusterResults: ClusterResult[] = [];
@@ -1689,9 +1697,14 @@ export function buildOptimalDeck(
       if (srk) for (const cf of (SUBROLE_FLAG_COVERAGE[srk] || [])) coveredFlags.add(cf);
     }
     const richnessRoles = activeFlags.filter(f => !coveredFlags.has(f));
+    const comp = densityComponents.get(id);
     densityEntries.push({
       name: entry.scryfallData.name,
       density,
+      clusterCount: comp?.clusterCount ?? 0,
+      subRoleCount: comp?.subRoleCount ?? 0,
+      bridging: comp?.bridging ?? 0,
+      richness: comp?.richness ?? 0,
       clusterNames,
       subRoleDetails,
       richnessRoles,
