@@ -3,6 +3,17 @@ import { getOracleText, getTypeLine, isLandCard } from './card-utils';
 
 export type ArchetypeCategory = 'wincon' | 'engine' | 'synergy' | 'enabler';
 
+export interface SubRole {
+  key: string;
+  name: string;
+  predicate: string;
+  ideal: number;
+  minimum: number;
+  optional: boolean;
+  example_cards: string[];
+  example_rejects: string[];
+}
+
 export interface ArchetypeEntry {
   key: string;
   display_name: string;
@@ -15,6 +26,7 @@ export interface ArchetypeEntry {
   always_proposed: boolean;
   example_cards: string[];
   example_rejects: string[];
+  sub_roles?: SubRole[];
 }
 
 export function matchesEntry(entry: CollectionEntry, arch: ArchetypeEntry): boolean {
@@ -64,6 +76,26 @@ export const ARCHETYPE_LIBRARY: ArchetypeEntry[] = [
     always_proposed: false,
     example_cards: ['Craterhoof Behemoth', 'Parallel Lives', 'Doubling Season', 'Wayfaring Temple'],
     example_rejects: ['Wrath of God'],
+    sub_roles: [
+      {
+        key: 'TOKEN_PRODUCERS', name: 'Token Producers', optional: false, ideal: 5, minimum: 4,
+        predicate: 'create .{0,30}\\d+ .{0,30}creature tokens?|create .{0,40}creature token.{0,40}(?:at the beginning|whenever|for each)|populate|amass \\d+|fabricate \\d+|create .{0,30}creature token.{0,100}at the beginning of (?:your |each )?(?:upkeep|combat|end step)',
+        example_cards: ['Bitterblossom', 'Avenger of Zendikar', 'Awakening Zone', 'Hoofprints of the Stag', 'Chatterfang'],
+        example_rejects: [],
+      },
+      {
+        key: 'ANTHEMS', name: 'Anthems', optional: false, ideal: 3, minimum: 2,
+        predicate: 'creatures you control get \\+\\d+\\/\\+\\d+|other (?:\\w+ )?creatures you control get \\+\\d+\\/\\+\\d+|\\w+ creatures you control get \\+\\d+\\/\\+\\d+|at the beginning of combat .{0,40}creatures you control get|\\bcrusade\\b|\\bglorious anthem\\b',
+        example_cards: ['Glorious Anthem', 'Crusade', 'Beastmaster Ascension', 'Cathars\' Crusade', 'Coat of Arms'],
+        example_rejects: [],
+      },
+      {
+        key: 'CLOSERS', name: 'Closers', optional: false, ideal: 2, minimum: 1,
+        predicate: 'creatures you control get \\+\\d+\\/\\+\\d+ and gain trample|\\bovercome\\b|\\bovergrowth\\b|double the number of .{0,30}tokens|each creature you control deals damage equal to',
+        example_cards: ['Craterhoof Behemoth', 'Overrun', 'Triumph of the Hordes', 'Pathbreaker Ibex', 'End-Raze Forerunners'],
+        example_rejects: [],
+      },
+    ],
   },
   {
     key: 'BURN_X_SPELL_KILL',
@@ -79,6 +111,26 @@ export const ARCHETYPE_LIBRARY: ArchetypeEntry[] = [
     always_proposed: false,
     example_cards: ['Comet Storm', 'Fall of the Titans', 'Crackle with Power'],
     example_rejects: ['Lightning Bolt', 'Shock', 'Voldaren Epicure', "Bontu's Monument"],
+    sub_roles: [
+      {
+        key: 'X_SPELLS', name: 'X Spells', optional: false, ideal: 4, minimum: 3,
+        predicate: '\\{X\\}.{0,40}deals? .{0,20}damage',
+        example_cards: ['Comet Storm', 'Fall of the Titans', 'Crackle with Power', 'Banefire', 'Earthquake'],
+        example_rejects: ['Lightning Bolt'],
+      },
+      {
+        key: 'RITUALS_AND_BIG_MANA', name: 'Rituals & Big Mana', optional: false, ideal: 3, minimum: 2,
+        predicate: 'add .{0,20}(\\{[RUBGW]\\}.{0,5}){2,}|adds? (?:twice|an additional|two|three).{0,30}mana|whenever .{0,40}tap.{0,40}for mana.{0,40}adds?',
+        example_cards: ['Seething Song', 'Pyretic Ritual', 'Mana Reflection', 'Nyxbloom Ancient', 'Mana Geyser'],
+        example_rejects: [],
+      },
+      {
+        key: 'COPY_EFFECTS', name: 'Copy Effects', optional: true, ideal: 2, minimum: 1,
+        predicate: 'copy target (?:instant|sorcery)|copy that spell|whenever you cast (?:an instant or sorcery|a noncreature spell).{0,40}copy',
+        example_cards: ['Reverberate', 'Twincast', 'Increasing Vengeance', 'Swarm Intelligence'],
+        example_rejects: [],
+      },
+    ],
   },
   {
     key: 'COMMANDER_DAMAGE_INFECT_POISON',
@@ -181,6 +233,26 @@ export const ARCHETYPE_LIBRARY: ArchetypeEntry[] = [
     always_proposed: false,
     example_cards: ['Animate Dead', 'Reanimate', 'Living Death', 'Angel of Glory\'s Rise'],
     example_rejects: ['Replenish', 'Splendid Reclamation'],
+    sub_roles: [
+      {
+        key: 'GRAVE_FILLERS', name: 'Grave Fillers', optional: false, ideal: 4, minimum: 3,
+        predicate: '\\bmill\\b|\\bself-mill\\b|put .{0,30}top .{0,30}cards? .{0,30}of your library into .{0,20}graveyard|draws? .{0,20}cards?.{0,30}(?:then |and )?discards?|discard your hand|sacrifice (?:a|another|target) .{0,20}creature.{0,20}:|\\bdredge\\b',
+        example_cards: ['Buried Alive', 'Stitcher\'s Supplier', 'Champion of Wits', 'Hermit Druid', 'Faithless Looting', 'Liliana of the Veil', 'Mesmeric Orb', 'Otrimi the Ever-Playful', 'Viscera Seer'],
+        example_rejects: ['Gate to the Afterlife', 'Animate Dead'],
+      },
+      {
+        key: 'REANIMATORS', name: 'Reanimators', optional: false, ideal: 4, minimum: 3,
+        predicate: '(?:return|puts?).{0,80}\\bcreature\\b.{0,80}(?:from (?:your|a|the|their) graveyard|graveyard.{0,80}(?:to (?:the )?battlefield|onto the battlefield|to (?:your )?hand))|graveyard.{0,300}(?:return|puts?).{0,80}\\bcreature\\b',
+        example_cards: ['Reanimate', 'Animate Dead', 'Living Death', 'Angel of Glory\'s Rise', 'Bloodline Bidding', 'Unearth', 'Victimize'],
+        example_rejects: ['Replenish', 'Splendid Reclamation'],
+      },
+      {
+        key: 'TARGETS', name: 'Targets', optional: false, ideal: 4, minimum: 2,
+        predicate: '__REANIM_TARGETS__',
+        example_cards: ['Craterhoof Behemoth', 'Avenger of Zendikar', 'Massacre Wurm', 'Sun Titan', 'Sheoldred the Apocalypse', 'Cavalier of Thorns'],
+        example_rejects: ['Lightning Bolt', 'Sol Ring'],
+      },
+    ],
   },
   {
     key: 'SPELL_RECURSION_ENGINE',
@@ -211,6 +283,26 @@ export const ARCHETYPE_LIBRARY: ArchetypeEntry[] = [
     always_proposed: false,
     example_cards: ['Ashnod\'s Altar', 'Phyrexian Altar', 'Viscera Seer', 'Carrion Feeder'],
     example_rejects: ['Fleshbag Marauder'],
+    sub_roles: [
+      {
+        key: 'OUTLETS', name: 'Outlets', optional: false, ideal: 3, minimum: 2,
+        predicate: 'sacrifice (?:a|another|target) .{0,30}(?:creature|permanent|artifact)\\s?[:,]',
+        example_cards: ['Ashnod\'s Altar', 'Phyrexian Altar', 'Viscera Seer', 'Carrion Feeder'],
+        example_rejects: ['Fleshbag Marauder'],
+      },
+      {
+        key: 'FODDER', name: 'Fodder', optional: false, ideal: 6, minimum: 4,
+        predicate: '__FODDER__',
+        example_cards: ['Gravecrawler', 'Reassembling Skeleton', 'Bloodsoaked Champion'],
+        example_rejects: [],
+      },
+      {
+        key: 'AFTERMATH_PAYOFFS', name: 'Aftermath Payoffs', optional: false, ideal: 3, minimum: 2,
+        predicate: 'whenever .{0,30}creature .{0,30}dies.{0,40}(?:opponent|player|deals|gain|put)',
+        example_cards: ['Blood Artist', 'Zulaport Cutthroat', 'Grim Haruspex', 'Pitiless Plunderer'],
+        example_rejects: [],
+      },
+    ],
   },
   {
     key: 'TOKEN_PRODUCTION_ENGINE',
@@ -241,6 +333,20 @@ export const ARCHETYPE_LIBRARY: ArchetypeEntry[] = [
     always_proposed: false,
     example_cards: ['Cloudshift', 'Ephemerate', 'Conjurer\'s Closet', 'Soulherder'],
     example_rejects: [],
+    sub_roles: [
+      {
+        key: 'BLINK_EFFECTS', name: 'Blink Effects', optional: false, ideal: 4, minimum: 2,
+        predicate: 'exile (?:target|another target) (?:creature|permanent).{0,40}return.{0,40}battlefield (?:under (?:its|their|your|its owner\'s|their owner\'s) control|tapped|untapped)|flicker',
+        example_cards: ['Cloudshift', 'Ephemerate', 'Conjurer\'s Closet', 'Soulherder'],
+        example_rejects: [],
+      },
+      {
+        key: 'ETB_VALUE_TARGETS', name: 'ETB Value Targets', optional: false, ideal: 5, minimum: 3,
+        predicate: '__ETB_TARGETS__',
+        example_cards: ['Mulldrifter', 'Reflector Mage', 'Reclamation Sage', 'Cloudblazer', 'Eternal Witness'],
+        example_rejects: [],
+      },
+    ],
   },
   {
     key: 'MANA_DOUBLERS_PRODUCTION',
@@ -269,6 +375,20 @@ export const ARCHETYPE_LIBRARY: ArchetypeEntry[] = [
     always_proposed: false,
     example_cards: ['Dockside Extortionist', 'Pitiless Plunderer', 'Brass\'s Bounty'],
     example_rejects: [],
+    sub_roles: [
+      {
+        key: 'TREASURE_MAKERS', name: 'Treasure Makers', optional: false, ideal: 5, minimum: 3,
+        predicate: 'create .{0,20}treasure token|whenever .{0,40}create .{0,20}treasure',
+        example_cards: ['Dockside Extortionist', 'Pitiless Plunderer', 'Brass\'s Bounty'],
+        example_rejects: [],
+      },
+      {
+        key: 'TREASURE_PAYOFFS', name: 'Treasure Payoffs', optional: false, ideal: 2, minimum: 1,
+        predicate: 'sacrifice .{0,10}treasure|whenever .{0,30}artifact .{0,30}enters|for each .{0,20}artifact',
+        example_cards: ['Marionette Apprentice', 'Disciple of the Vault'],
+        example_rejects: [],
+      },
+    ],
   },
   {
     key: 'COUNTERS_PROLIFERATE_ENGINE',
@@ -282,6 +402,26 @@ export const ARCHETYPE_LIBRARY: ArchetypeEntry[] = [
     always_proposed: false,
     example_cards: ['Hardened Scales', 'Doubling Season', 'Inspiring Call', 'Evolution Sage'],
     example_rejects: [],
+    sub_roles: [
+      {
+        key: 'COUNTER_PLACERS', name: 'Counter Placers', optional: false, ideal: 5, minimum: 3,
+        predicate: 'put .{0,30}\\+1\\/\\+1 counter',
+        example_cards: ['Hardened Scales', 'Doubling Season', 'Inspiring Call', 'Evolution Sage'],
+        example_rejects: [],
+      },
+      {
+        key: 'PROLIFERATE_ENGINES', name: 'Proliferate Engines', optional: false, ideal: 3, minimum: 2,
+        predicate: 'proliferate|double the number of',
+        example_cards: ['Evolution Sage', 'Doubling Season'],
+        example_rejects: [],
+      },
+      {
+        key: 'COUNTER_PAYOFFS', name: 'Counter Payoffs', optional: false, ideal: 2, minimum: 1,
+        predicate: 'equal to the number of .{0,40}counters|for each .{0,30}counter',
+        example_cards: ['Inspiring Call', 'Armorcraft Judge'],
+        example_rejects: [],
+      },
+    ],
   },
   {
     key: 'SPELLSLINGER_PAYOFF',
@@ -297,6 +437,26 @@ export const ARCHETYPE_LIBRARY: ArchetypeEntry[] = [
     always_proposed: false,
     example_cards: ['Storm-Kiln Artist', 'Young Pyromancer', 'Talrand', 'Archmage Emeritus'],
     example_rejects: [],
+    sub_roles: [
+      {
+        key: 'PAYOFFS', name: 'Payoffs', optional: false, ideal: 5, minimum: 4,
+        predicate: 'whenever you cast (?:an? |your )?(?:instant|sorcery|noncreature)|magecraft|prowess',
+        example_cards: ['Storm-Kiln Artist', 'Young Pyromancer', 'Talrand', 'Archmage Emeritus'],
+        example_rejects: [],
+      },
+      {
+        key: 'CHEAP_SPELL_DENSITY', name: 'Cheap Spell Density', optional: false, ideal: 12, minimum: 8,
+        predicate: '__CHEAP_SPELL__',
+        example_cards: ['Lightning Bolt', 'Brainstorm', 'Opt', 'Preordain', 'Counterspell', 'Swords to Plowshares', 'Path to Exile'],
+        example_rejects: [],
+      },
+      {
+        key: 'COPY_RECUR', name: 'Copy / Recur', optional: true, ideal: 2, minimum: 1,
+        predicate: 'copy target (?:instant|sorcery)|cast .{0,40}from .{0,20}graveyard|flashback|whenever you cast .{0,40}from .{0,20}graveyard',
+        example_cards: ['Snapcaster Mage', 'Past in Flames', 'Increasing Vengeance', 'Underworld Breach', 'Mystic Sanctuary'],
+        example_rejects: [],
+      },
+    ],
   },
   {
     key: 'ARTIFACT_SYNERGY_ENGINE',
@@ -351,6 +511,26 @@ export const ARCHETYPE_LIBRARY: ArchetypeEntry[] = [
     always_proposed: false,
     example_cards: ['Cavalier of Thorns', 'Multani', 'Titania'],
     example_rejects: [],
+    sub_roles: [
+      {
+        key: 'TRIBE_BODIES', name: 'Tribe Bodies', optional: false, ideal: 12, minimum: 8,
+        predicate: '__TRIBE_BODIES__',
+        example_cards: ['Cavalier of Thorns', 'Multani', 'Titania'],
+        example_rejects: [],
+      },
+      {
+        key: 'TRIBAL_LORDS', name: 'Tribal Lords', optional: false, ideal: 3, minimum: 1,
+        predicate: '\\b{tribe}s? you control get \\+\\d+\\/\\+\\d+|other \\b{tribe}s? get',
+        example_cards: ['Omnath Locus of the Roil', 'Soulbright Flamekin'],
+        example_rejects: [],
+      },
+      {
+        key: 'TRIBAL_ENABLERS', name: 'Tribal Enablers', optional: true, ideal: 2, minimum: 1,
+        predicate: '\\b{tribe}s? you cast cost .{0,10} less|search your library for .{0,30}\\b{tribe}\\b|return target \\b{tribe}\\b',
+        example_cards: ['Smokebraider', 'Flamekin Harbinger', 'Incandescent Soulstoke'],
+        example_rejects: [],
+      },
+    ],
   },
   {
     key: 'TRIBAL_PAYOFF',

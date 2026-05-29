@@ -21,6 +21,26 @@ interface ClusterResult {
   added: CollectionEntry[];
   target: number;
   matched: number;
+  subRoleFills?: SubRoleFill[];
+  completeness?: 'COMPLETE' | 'UNDERFILLED' | 'INCOMPLETE';
+}
+
+interface CompiledSubRole {
+  key: string;
+  name: string;
+  ideal: number;
+  minimum: number;
+  optional: boolean;
+  predicate: (entry: CollectionEntry) => boolean;
+  example_cards: string[];
+}
+
+interface SubRoleFill {
+  role: CompiledSubRole;
+  cards: CollectionEntry[];
+  filled: number;
+  status: 'complete' | 'underfilled' | 'missing';
+  budgetSkipped?: boolean;
 }
 
 interface ArchetypeDiagnostic {
@@ -54,14 +74,43 @@ function describeGamePlan(cmdAnalysis: CommanderAnalysis, results?: ClusterResul
     if (r.added.length === 0) {
       return `${r.archetype.display_name}: empty (0/${r.matched} qualifying)`;
     }
+    const shortNames = (entries: CollectionEntry[], count: number): string =>
+      entries.slice(0, count).map(e => e.scryfallData.name).join(', ');
     const cardList = allNames(r.added);
+    let header = '';
     if (r.added.length < r.target) {
       const advice = r.archetype.category === 'wincon'
         ? 'Acquiring more options would strengthen this win condition.'
         : 'Acquiring more options would deepen this cluster.';
-      return `${r.archetype.display_name}: ${r.added.length}/${r.target} (${r.matched} in collection). ${advice}\n     ${cardList}`;
+      header = `${r.archetype.display_name}: ${r.added.length}/${r.target} (${r.matched} in collection). ${advice}\n     ${cardList}`;
+    } else {
+      header = `${r.archetype.display_name}: ${r.added.length}/${r.target} \u2713\n     ${cardList}`;
     }
-    return `${r.archetype.display_name}: ${r.added.length}/${r.target} \u2713\n     ${cardList}`;
+    // Sub-role breakdown
+    if (r.subRoleFills && r.subRoleFills.length > 0) {
+      const srLines: string[] = [];
+      for (const sr of r.subRoleFills) {
+        const marker = sr.status === 'complete' ? '\u2713' : (sr.status === 'missing' ? '\u2717' : '~');
+        if (sr.role.optional && sr.filled === 0) {
+          srLines.push(`    ${sr.role.name}: 0/${sr.role.ideal} (optional)`);
+        } else if (sr.status === 'missing') {
+          const who = sr.filled > 0 ? `only ${shortNames(sr.cards, 3)} qualifies` : 'none qualify';
+          const budgetNote = sr.budgetSkipped ? ' BUDGET-STRIPPED' : '';
+          srLines.push(`    ${sr.role.name}: ${sr.filled}/${sr.role.minimum} ${marker} MISSING${budgetNote} — ${who}.`);
+          const tribeMatch = r.archetype.display_name.match(/\(([^)]+)\)/);
+          const tribe = tribeMatch ? tribeMatch[1] : null;
+          const seedKey = tribe ? `${sr.role.key}:${tribe}` : sr.role.key;
+          const seeds = SEED_GAPS[seedKey] || SEED_GAPS[r.archetype.key] || sr.role.example_cards;
+          if (seeds && seeds.length > 0) {
+            srLines.push(`           Consider: ${seeds.join(', ')}.`);
+          }
+        } else {
+          srLines.push(`    ${sr.role.name}: ${sr.filled}/${sr.role.ideal} ${marker} (${shortNames(sr.cards, 4)})`);
+        }
+      }
+      return `${header}\n${srLines.join('\n')}`;
+    }
+    return header;
   };
 
   if (wincon.length) parts.push(`Win: ${wincon.map(describeCluster).join('; ')}`);
@@ -151,6 +200,142 @@ function logClusterMatch(archetype: ClusterArchetype, entry: CollectionEntry): v
     }
   }
   console.log(`[${archetype.display_name}] ${entry.scryfallData.name} → matched clause: ${reason}`);
+}
+
+function escapeRegexMeta(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+const subRoleCompileCache = new Map<string, CompiledSubRole[]>();
+
+function compileSubRoles(entry: typeof ARCHETYPE_LIBRARY[0], tribe?: string): CompiledSubRole[] {
+  const cacheKey = tribe ? `${entry.key}:${tribe}` : entry.key;
+  const cached = subRoleCompileCache.get(cacheKey);
+  if (cached) return cached;
+  if (!entry.sub_roles) return [];
+
+  const tribeLower = tribe ? tribe.toLowerCase() : '';
+  const tribeEscaped = tribeLower ? escapeRegexMeta(tribeLower) : '';
+  const compiled: CompiledSubRole[] = [];
+
+  for (const sr of entry.sub_roles) {
+    const buildRegexPredicate = (pattern: string): ((e: CollectionEntry) => boolean) => {
+      const finalPattern = tribeEscaped ? pattern.replace(/\{tribe\}/g, tribeEscaped) : pattern;
+      const regex = new RegExp(finalPattern, 'i');
+      return (e: CollectionEntry) => {
+        const oracle = getOracleText(e.scryfallData).toLowerCase().replace(/\n/g, ' ');
+        return regex.test(oracle);
+      };
+    };
+
+    let pred: (e: CollectionEntry) => boolean;
+
+    if (sr.key === 'TRIBE_BODIES') {
+      pred = (e: CollectionEntry) => {
+        const tl = getTypeLine(e.scryfallData);
+        const subtypeMatch = tl.match(/Creature\s+(?:—|–)\s+(.+)/i);
+        if (subtypeMatch) {
+          const subtypes = subtypeMatch[1].trim().split(/\s+/).map(s => s.toLowerCase());
+          if (subtypes.includes(tribeLower)) return true;
+        }
+        const oracle = getOracleText(e.scryfallData).toLowerCase().replace(/\n/g, ' ');
+        return /\bchangeling\b/i.test(oracle);
+      };
+    } else if (sr.key === 'TARGETS') {
+      pred = (e: CollectionEntry) => {
+        const card = e.scryfallData;
+        const tl = getTypeLine(card).toLowerCase();
+        if (!tl.includes('creature') || (card.cmc || 0) < 5) return false;
+        const pow = parseInt(card.power) || 0;
+        const tou = parseInt(card.toughness) || 0;
+        if (pow >= 4 && tou >= 4) return true;
+        const oracle = getOracleText(card).toLowerCase().replace(/\n/g, ' ');
+        return /when .{0,40}(?:enters the battlefield|enters\b)|whenever .{0,30}attacks/i.test(oracle);
+      };
+    } else if (sr.key === 'CHEAP_SPELL_DENSITY') {
+      pred = (e: CollectionEntry) => {
+        const tl = getTypeLine(e.scryfallData).toLowerCase();
+        return (tl.includes('instant') || tl.includes('sorcery')) && (e.scryfallData.cmc || 0) <= 3;
+      };
+    } else if (sr.key === 'FODDER') {
+      pred = (e: CollectionEntry) => {
+        const tl = getTypeLine(e.scryfallData).toLowerCase();
+        if (tl.includes('creature') && (e.scryfallData.cmc || 0) <= 2) return true;
+        const oracle = getOracleText(e.scryfallData).toLowerCase().replace(/\n/g, ' ');
+        return /create .{0,30}creature token/i.test(oracle);
+      };
+    } else if (sr.key === 'ETB_VALUE_TARGETS') {
+      pred = (e: CollectionEntry) => {
+        const tl = getTypeLine(e.scryfallData).toLowerCase();
+        if (!tl.includes('creature')) return false;
+        const oracle = getOracleText(e.scryfallData).toLowerCase().replace(/\n/g, ' ');
+        return /when .{0,40}enters.{0,40}(?:draw|search|destroy|exile|return|create|deal)/i.test(oracle);
+      };
+    } else if (sr.key === 'GRAVE_FILLERS') {
+      const basePred = buildRegexPredicate(sr.predicate);
+      pred = (e: CollectionEntry) => {
+        if (isLandCard(e.scryfallData)) {
+          return /mill/i.test(getOracleText(e.scryfallData).toLowerCase().replace(/\n/g, ' '));
+        }
+        return basePred(e);
+      };
+    } else {
+      pred = buildRegexPredicate(sr.predicate);
+    }
+
+    compiled.push({
+      key: sr.key,
+      name: sr.name,
+      ideal: sr.ideal,
+      minimum: sr.minimum,
+      optional: sr.optional,
+      predicate: pred,
+      example_cards: [...sr.example_cards],
+    });
+  }
+
+  subRoleCompileCache.set(cacheKey, compiled);
+  return compiled;
+}
+
+function classifySubRoles(cards: CollectionEntry[], compiled: CompiledSubRole[]): SubRoleFill[] {
+  const fills: SubRoleFill[] = compiled.map(c => ({
+    role: c,
+    cards: [] as CollectionEntry[],
+    filled: 0,
+    status: 'missing' as const,
+  }));
+  const fillMap = new Map(fills.map(f => [f.role.key, f]));
+  for (const card of cards) {
+    for (const c of compiled) {
+      if (c.predicate(card)) {
+        const f = fillMap.get(c.key)!;
+        f.cards.push(card);
+        f.filled = f.cards.length;
+      }
+    }
+  }
+  for (const f of fills) {
+    if (f.filled < f.role.minimum) f.status = 'missing';
+    else if (f.filled < f.role.ideal) f.status = 'underfilled';
+    else f.status = 'complete';
+  }
+  return fills;
+}
+
+function computeSubRoleBonuses(card: CollectionEntry, compiled: CompiledSubRole[], fills: SubRoleFill[]): number {
+  let hasBelowMin = false;
+  let hasBelowIdeal = false;
+  for (const c of compiled) {
+    if (!c.predicate(card)) continue;
+    const f = fills.find(fi => fi.role.key === c.key);
+    if (!f) continue;
+    if (f.filled < c.minimum) hasBelowMin = true;
+    else if (f.filled < c.ideal) hasBelowIdeal = true;
+  }
+  if (hasBelowMin) return 12;
+  if (hasBelowIdeal) return 6;
+  return 0;
 }
 
 function proposeArchetypes(
@@ -1055,29 +1240,126 @@ export function buildOptimalDeck(
   for (const a of selectedArchetypes) {
     const alloc = clusterAlloc.get(a) || 0;
     const qualifying = valid.filter(e => !isLandCard(e.scryfallData) && a.matches(e, getRoles) && (!a.exclusions || !a.exclusions(e)));
-    const ranked = [...qualifying].sort((a, b) => b.scores.composite - a.scores.composite);
     const addedEntries: CollectionEntry[] = [];
-    for (const entry of ranked) {
-      if (addedEntries.length >= alloc) break;
-      const card = entry.scryfallData;
-      const key = getDeckCardKey(card);
-      if (selectedKeys.has(key) || cardIds.includes(card.id)) {
-        let inOtherClusters = 0;
-        for (const other of selectedArchetypes) {
-          if (other === a) continue;
-          if (other.matches(entry, getRoles) && (!other.exclusions || !other.exclusions(entry))) inOtherClusters++;
+    const addedIds = new Set<string>();
+    const tribalTribe = a.display_name.match(/\(([^)]+)\)/)?.[1];
+    const libEntry = ARCHETYPE_LIBRARY.find(e => e.key === a.key);
+    const compiledSubRoles = libEntry?.sub_roles ? compileSubRoles(libEntry, tribalTribe) : [];
+
+    if (compiledSubRoles.length > 0) {
+      // Pre-classify each qualifying card into sub-roles
+      const cardToRoleKeys = new Map<string, Set<string>>();
+      for (const entry of qualifying) {
+        const roleKeys = new Set<string>();
+        for (const c of compiledSubRoles) {
+          if (c.predicate(entry)) roleKeys.add(c.key);
         }
-        if (inOtherClusters === 0) continue;
+        cardToRoleKeys.set(entry.scryfallData.id, roleKeys);
       }
-      if (addEntry(entry, a.display_name, `${a.category} for "${a.display_name}" cluster`)) {
-        addedEntries.push(entry);
-        logClusterMatch(a, entry);
-        const ccs = clusterCardIds.get(card.id) || [];
-        ccs.push(a);
-        clusterCardIds.set(card.id, ccs);
+      // Track sub-role fills
+      const subRoleCards = new Map<string, CollectionEntry[]>();
+      const subRoleCounts = new Map<string, number>();
+      for (const c of compiledSubRoles) {
+        subRoleCards.set(c.key, []);
+        subRoleCounts.set(c.key, 0);
       }
+      // Greedy fill with sub-role priority
+      while (addedEntries.length < alloc) {
+        let bestEntry: CollectionEntry | null = null;
+        let bestScore = -Infinity;
+        for (const entry of qualifying) {
+          if (addedIds.has(entry.scryfallData.id)) continue;
+          const card = entry.scryfallData;
+          const key = getDeckCardKey(card);
+          if (selectedKeys.has(key) || cardIds.includes(card.id)) {
+            let inOtherClusters = 0;
+            for (const other of selectedArchetypes) {
+              if (other === a) continue;
+              if (other.matches(entry, getRoles) && (!other.exclusions || !other.exclusions(entry))) inOtherClusters++;
+            }
+            if (inOtherClusters === 0) continue;
+          }
+          let bonus = 0;
+          const roleKeys = cardToRoleKeys.get(card.id) || new Set();
+          for (const rk of roleKeys) {
+            const current = subRoleCounts.get(rk) || 0;
+            const c = compiledSubRoles.find(sr => sr.key === rk);
+            if (!c || c.optional) continue;
+            if (current < c.minimum) bonus = Math.max(bonus, 12);
+            else if (current < c.ideal) bonus = Math.max(bonus, 6);
+          }
+          const score = entry.scores.composite + bonus;
+          if (score > bestScore) { bestEntry = entry; bestScore = score; }
+        }
+        if (!bestEntry) break;
+        if (addEntry(bestEntry, a.display_name, `${a.category} for "${a.display_name}" cluster`)) {
+          addedEntries.push(bestEntry);
+          addedIds.add(bestEntry.scryfallData.id);
+          logClusterMatch(a, bestEntry);
+          const card = bestEntry.scryfallData;
+          const ccs = clusterCardIds.get(card.id) || [];
+          ccs.push(a);
+          clusterCardIds.set(card.id, ccs);
+          const roleKeys = cardToRoleKeys.get(card.id) || new Set();
+          for (const rk of roleKeys) {
+            subRoleCounts.set(rk, (subRoleCounts.get(rk) || 0) + 1);
+            const arr = subRoleCards.get(rk)!;
+            arr.push(bestEntry);
+          }
+        }
+      }
+      // Build SubRoleFill results
+      const subRoleFills: SubRoleFill[] = compiledSubRoles.map(c => {
+        const cards = subRoleCards.get(c.key) || [];
+        const filled = cards.length;
+        let status: 'complete' | 'underfilled' | 'missing' = 'complete';
+        if (filled < c.minimum) status = 'missing';
+        else if (filled < c.ideal) status = 'underfilled';
+        return { role: c, cards, filled, status };
+      });
+      // Compute cluster-level completeness
+      let completeness: 'COMPLETE' | 'UNDERFILLED' | 'INCOMPLETE' = 'COMPLETE';
+      for (const sf of subRoleFills) {
+        if (sf.role.optional) continue;
+        if (sf.status === 'missing') {
+          completeness = 'INCOMPLETE';
+          // Check budget constraint
+          if (alloc < compiledSubRoles.filter(r => !r.optional).reduce((s, r) => s + r.minimum, 0)) {
+            sf.budgetSkipped = true;
+          }
+        } else if (sf.status === 'underfilled' && completeness === 'COMPLETE') {
+          completeness = 'UNDERFILLED';
+        }
+      }
+      clusterResults.push({
+        archetype: a, added: addedEntries, target: alloc, matched: qualifying.length,
+        subRoleFills, completeness,
+      });
+    } else {
+      // Original fill for clusters without sub-roles
+      const ranked = [...qualifying].sort((a, b) => b.scores.composite - a.scores.composite);
+      for (const entry of ranked) {
+        if (addedEntries.length >= alloc) break;
+        const card = entry.scryfallData;
+        const key = getDeckCardKey(card);
+        if (selectedKeys.has(key) || cardIds.includes(card.id)) {
+          let inOtherClusters = 0;
+          for (const other of selectedArchetypes) {
+            if (other === a) continue;
+            if (other.matches(entry, getRoles) && (!other.exclusions || !other.exclusions(entry))) inOtherClusters++;
+          }
+          if (inOtherClusters === 0) continue;
+        }
+        if (addEntry(entry, a.display_name, `${a.category} for "${a.display_name}" cluster`)) {
+          addedEntries.push(entry);
+          logClusterMatch(a, entry);
+          const ccs = clusterCardIds.get(card.id) || [];
+          ccs.push(a);
+          clusterCardIds.set(card.id, ccs);
+        }
+      }
+      clusterResults.push({ archetype: a, added: addedEntries, target: alloc, matched: qualifying.length });
     }
-    clusterResults.push({ archetype: a, added: addedEntries, target: alloc, matched: qualifying.length });
   }
 
   // Phase 4: Compute cluster overlap score
