@@ -4,7 +4,7 @@ import { detectCardRoles, cardMatchesTheme } from './card-roles';
 import { getDeckBlueprint } from './deck-blueprint';
 import type { PowerLevel } from './deck-blueprint';
 import { analyzeCommander } from './commander-analyzer';
-import { ARCHETYPE_LIBRARY, runSanityCheck, verifyTribalRejects, SEED_GAPS } from './archetype-library';
+import { ARCHETYPE_LIBRARY, runSanityCheck, verifyTribalRejects, verifySignalExamples, SEED_GAPS } from './archetype-library';
 import type { ArchetypeCategory } from './archetype-library';
 
 interface ClusterArchetype {
@@ -120,6 +120,39 @@ function buildExclusions(entry: ArchetypeEntry): ((e: CollectionEntry) => boolea
   return (e: CollectionEntry) => getOracleText(e.scryfallData).toLowerCase().match(entry.exclusions!) !== null;
 }
 
+function logClusterMatch(archetype: ClusterArchetype, entry: CollectionEntry): void {
+  const oracle = getOracleText(entry.scryfallData).toLowerCase();
+  const tl = getTypeLine(entry.scryfallData);
+  let reason = 'card_predicate matched oracle_text';
+  if (archetype.key === 'TRIBAL_DENSITY') {
+    const tribeMatch = archetype.display_name.match(/\(([^)]+)\)/);
+    const tribe = tribeMatch ? tribeMatch[1].toLowerCase() : '';
+    const subtypeMatch = tl.match(/Creature\s+(?:—|–)\s+(.+)/i);
+    if (subtypeMatch) {
+      const subtypes = subtypeMatch[1].trim().split(/\s+/).map(s => s.toLowerCase());
+      if (subtypes.includes(tribe)) {
+        reason = `type_line contains '${tribe}' as creature subtype`;
+      }
+    }
+    if (reason === 'card_predicate matched oracle_text') {
+      if (/\bchangeling\b/i.test(oracle)) {
+        reason = 'oracle_text: changeling';
+      } else {
+        reason = `oracle_text: 'this creature is (also) a(n) ${tribe}' clause`;
+      }
+    }
+  } else if (archetype.key === 'TRIBAL_PAYOFF') {
+    const tribeMatch = archetype.display_name.match(/\(([^)]+)\)/);
+    const tribe = tribeMatch ? tribeMatch[1].toLowerCase() : '';
+    if (new RegExp(`(create|put|return).{0,50}\\b${tribe}s?\\b`, 'i').test(oracle)) {
+      reason = `oracle_text: create/put/return of '${tribe}'`;
+    } else {
+      reason = `oracle_text contains '${tribe}' with payoff clause`;
+    }
+  }
+  console.log(`[${archetype.display_name}] ${entry.scryfallData.name} → matched clause: ${reason}`);
+}
+
 function proposeArchetypes(
   cmdAnalysis: CommanderAnalysis,
   valid: CollectionEntry[],
@@ -134,6 +167,8 @@ function proposeArchetypes(
   for (const bug of sanityBugs) console.warn(bug);
   const tribalBugs = verifyTribalRejects();
   for (const bug of tribalBugs) console.error(bug);
+  const signalBugs = verifySignalExamples();
+  for (const bug of signalBugs) console.error(bug);
 
   interface ScoredCandidate {
     archetype: ClusterArchetype;
@@ -183,17 +218,21 @@ function proposeArchetypes(
       const tribeLower = tribe.toLowerCase();
       if (entry.key === 'TRIBAL_DENSITY') {
         predicateFn = (e: CollectionEntry) => {
-          const tl = getTypeLine(e.scryfallData).toLowerCase();
-          if (tl.includes(tribeLower)) return true;
+          const tl = getTypeLine(e.scryfallData);
+          const subtypeMatch = tl.match(/Creature\s+(?:—|–)\s+(.+)/i);
+          if (subtypeMatch) {
+            const subtypes = subtypeMatch[1].trim().split(/\s+/).map(s => s.toLowerCase());
+            if (subtypes.includes(tribeLower)) return true;
+          }
           const oracle = getOracleText(e.scryfallData).toLowerCase();
-          return new RegExp(`\\b${tribeLower}s?\\b`, 'i').test(oracle)
-            && /you control|other |each |enters|attacks?|dies|cast|deals?/i.test(oracle);
+          return new RegExp(`\\bthis creature is (?:also )?an? ${tribeLower}\\b`, 'i').test(oracle)
+            || /\bchangeling\b/i.test(oracle);
         };
       } else {
         predicateFn = (e: CollectionEntry) => {
           const oracle = getOracleText(e.scryfallData).toLowerCase();
-          return new RegExp(`\\b${tribeLower}s?\\b.{0,40}(?:you control|gets?|gain|\\+\\d|enters|attacks?|dies|cast|deals?)`, 'i').test(oracle)
-            || new RegExp(`(?:create|put|return).{0,40}\\b${tribeLower}\\b`, 'i').test(oracle);
+          return new RegExp(`\\b${tribeLower}s?\\b.{0,60}(you control|gets?|gain|\\+\\d|enters|attacks?|dies|cast|deals?|create|put|return)`, 'i').test(oracle)
+            || new RegExp(`(create|put|return).{0,50}\\b${tribeLower}s?\\b`, 'i').test(oracle);
         };
       }
       exclusionFn = null;
@@ -226,6 +265,18 @@ function proposeArchetypes(
       }
     }
 
+    // BUG C: ANTI-HORDE guard — Elemental reanimation commanders are never voltron
+    if (entry.key === 'COMMANDER_DAMAGE_VOLTRON'
+      && cmdTypeLine.toLowerCase().includes('elemental')
+      && /from (?:your|a) graveyard/i.test(cmdOracle)) {
+      diagnostics.push({
+        key: entry.key, display_name: displayName, category: entry.category,
+        status: 'skipped-no-signal', qualifying: 0, ideal: entry.ideal_count,
+        reason: 'Elemental graveyard commander — not voltron',
+      });
+      continue;
+    }
+
     // Find qualifying cards
     const qualifying = valid.filter(e => {
       if (isLandCard(e.scryfallData)) return false;
@@ -236,10 +287,10 @@ function proposeArchetypes(
 
     // Also do a type-line check for rocks and dorks
     if (entry.key === 'ROCKS_RAMP') {
-      // Must be artifact non-creature
+      // Must be artifact non-creature, non-equipment
       const final = qualifying.filter(e => {
         const tl = getTypeLine(e.scryfallData).toLowerCase();
-        return tl.includes('artifact') && !tl.includes('creature');
+        return tl.includes('artifact') && !tl.includes('creature') && !tl.includes('equipment');
       });
       qualifying.length = 0;
       qualifying.push(...final);
@@ -256,6 +307,26 @@ function proposeArchetypes(
       const final = qualifying.filter(e => {
         const tl = getTypeLine(e.scryfallData).toLowerCase();
         return tl.includes('creature') && (e.scryfallData.cmc || 0) <= 2;
+      });
+      qualifying.length = 0;
+      qualifying.push(...final);
+    }
+    if (entry.key === 'BURN_X_SPELL_KILL') {
+      const final = qualifying.filter(e => {
+        const oracle = getOracleText(e.scryfallData);
+        const dmgMatch = oracle.match(/deals?\s+(\d+)\s+damage/);
+        if (dmgMatch) {
+          return parseInt(dmgMatch[1]) >= 5;
+        }
+        return true;
+      });
+      qualifying.length = 0;
+      qualifying.push(...final);
+    }
+    if (entry.key === 'COMMANDER_DAMAGE_VOLTRON') {
+      const final = qualifying.filter(e => {
+        const tl = getTypeLine(e.scryfallData).toLowerCase();
+        return tl.includes('equipment') || tl.includes('aura');
       });
       qualifying.length = 0;
       qualifying.push(...final);
@@ -388,43 +459,74 @@ function proposeArchetypes(
     });
   }
 
-  // BUG 4: Wincon fallback
+  // BUG E: Smarter wincon fallback — pick based on selected engines
   const selectedWincons = selected.filter(a => a.category === 'wincon');
   if (selectedWincons.length === 0) {
-    const goWideEntry = ARCHETYPE_LIBRARY.find(e => e.key === 'COMBAT_FINISHERS_GO_WIDE');
-    const voltronEntry = ARCHETYPE_LIBRARY.find(e => e.key === 'COMMANDER_DAMAGE_VOLTRON');
-    let goWideCount = 0;
-    let voltronCount = 0;
-    if (goWideEntry) {
-      goWideCount = valid.filter(e => !isLandCard(e.scryfallData) && buildPredicate(goWideEntry)(e)
-        && (!goWideEntry.exclusions || !goWideEntry.exclusions.test(getOracleText(e.scryfallData).toLowerCase()))).length;
-    }
-    if (voltronEntry) {
-      voltronCount = valid.filter(e => !isLandCard(e.scryfallData) && buildPredicate(voltronEntry)(e)
-        && (!voltronEntry.exclusions || !voltronEntry.exclusions.test(getOracleText(e.scryfallData).toLowerCase()))).length;
-    }
-    if (goWideCount === 0 && voltronCount === 0) {
-      console.warn('WARNING: no wincon archetype qualifies for this commander/collection');
+    const countQualifying = (entry: typeof ARCHETYPE_LIBRARY[0]) =>
+      valid.filter(e => !isLandCard(e.scryfallData) && buildPredicate(entry)(e)
+        && (!entry.exclusions || !entry.exclusions.test(getOracleText(e.scryfallData).toLowerCase()))).length;
+
+    const hasSpellslinger = selected.some(a => a.key === 'SPELLSLINGER_PAYOFF');
+    const hasTribalDensity = selected.some(a => a.key === 'TRIBAL_DENSITY');
+    const hasReanimation = selected.some(a => a.key === 'REANIMATION_CREATURE_ENGINE');
+    const hasTokenEngine = selected.some(a => a.key === 'TOKEN_PRODUCTION_ENGINE');
+    const hasCounters = selected.some(a => a.key === 'COUNTERS_PROLIFERATE_ENGINE');
+
+    let fallbackEntry: (typeof ARCHETYPE_LIBRARY)[0] | undefined;
+    let fallbackReason = '';
+
+    if (hasSpellslinger && cmdCI.has('R')) {
+      fallbackEntry = ARCHETYPE_LIBRARY.find(e => e.key === 'BURN_X_SPELL_KILL');
+      fallbackReason = 'SPELLSLINGER_PAYOFF selected — spellslinger decks use burn finishers';
+    } else if (hasTribalDensity) {
+      fallbackEntry = ARCHETYPE_LIBRARY.find(e => e.key === 'COMBAT_FINISHERS_GO_WIDE');
+      fallbackReason = 'TRIBAL_DENSITY selected — tribal decks want to swarm';
+    } else if (hasReanimation) {
+      fallbackEntry = ARCHETYPE_LIBRARY.find(e => e.key === 'COMBAT_FINISHERS_GO_WIDE');
+      fallbackReason = 'REANIMATION_CREATURE_ENGINE selected — recurred creatures need a punch';
+    } else if (hasTokenEngine) {
+      fallbackEntry = ARCHETYPE_LIBRARY.find(e => e.key === 'COMBAT_FINISHERS_GO_WIDE');
+      fallbackReason = 'TOKEN_PRODUCTION_ENGINE selected — tokens want to overrun';
+    } else if (hasCounters) {
+      const goWideEntry = ARCHETYPE_LIBRARY.find(e => e.key === 'COMBAT_FINISHERS_GO_WIDE');
+      const infectEntry = ARCHETYPE_LIBRARY.find(e => e.key === 'COMMANDER_DAMAGE_INFECT_POISON');
+      const gwCount = goWideEntry ? countQualifying(goWideEntry) : 0;
+      const infCount = infectEntry ? countQualifying(infectEntry) : 0;
+      if (infCount > gwCount && infectEntry) {
+        fallbackEntry = infectEntry;
+        fallbackReason = 'COUNTERS_PROLIFERATE_ENGINE selected — infect has more cards';
+      } else if (goWideEntry) {
+        fallbackEntry = goWideEntry;
+        fallbackReason = 'COUNTERS_PROLIFERATE_ENGINE selected — go-wide has more cards';
+      }
     } else {
-      const fallbackEntry = goWideCount >= voltronCount ? goWideEntry! : voltronEntry!;
-      const fallbackCount = goWideCount >= voltronCount ? goWideCount : voltronCount;
-      const archetype: ClusterArchetype = {
-        key: fallbackEntry.key,
-        display_name: fallbackEntry.display_name,
-        category: fallbackEntry.category,
-        matches: buildPredicate(fallbackEntry),
-        exclusions: buildExclusions(fallbackEntry),
-        idealCards: fallbackEntry.ideal_count,
-      };
-      selected.push(archetype);
-      diagnostics.push({
-        key: archetype.key, display_name: archetype.display_name,
-        category: archetype.category,
-        status: fallbackCount < archetype.idealCards ? 'underfilled' : 'selected',
-        qualifying: fallbackCount, ideal: archetype.idealCards,
-        reason: `fallback (${fallbackCount} qualifying)`,
-      });
-      console.log(`WINCON FALLBACK: forced ${archetype.display_name} (${fallbackCount} qualifying)`);
+      fallbackEntry = ARCHETYPE_LIBRARY.find(e => e.key === 'COMBAT_FINISHERS_GO_WIDE');
+      fallbackReason = 'universal fallback';
+    }
+
+    if (fallbackEntry) {
+      const fallbackCount = countQualifying(fallbackEntry);
+      if (fallbackCount > 0) {
+        const archetype: ClusterArchetype = {
+          key: fallbackEntry.key,
+          display_name: fallbackEntry.display_name,
+          category: fallbackEntry.category,
+          matches: buildPredicate(fallbackEntry),
+          exclusions: buildExclusions(fallbackEntry),
+          idealCards: fallbackEntry.ideal_count,
+        };
+        selected.push(archetype);
+        diagnostics.push({
+          key: archetype.key, display_name: archetype.display_name,
+          category: archetype.category,
+          status: fallbackCount < archetype.idealCards ? 'underfilled' : 'selected',
+          qualifying: fallbackCount, ideal: archetype.idealCards,
+          reason: `fallback (${fallbackCount} qualifying)`,
+        });
+        console.log(`WINCON FALLBACK: forced ${archetype.display_name} because ${fallbackReason} (${fallbackCount} qualifying)`);
+      } else {
+        console.warn('WARNING: no wincon archetype qualifies for this commander/collection');
+      }
     }
   }
 
@@ -969,6 +1071,7 @@ export function buildOptimalDeck(
       }
       if (addEntry(entry, a.display_name, `${a.category} for "${a.display_name}" cluster`)) {
         addedEntries.push(entry);
+        logClusterMatch(a, entry);
         const ccs = clusterCardIds.get(card.id) || [];
         ccs.push(a);
         clusterCardIds.set(card.id, ccs);
