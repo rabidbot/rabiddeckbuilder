@@ -4,23 +4,16 @@ import { detectCardRoles, cardMatchesTheme } from './card-roles';
 import { getDeckBlueprint } from './deck-blueprint';
 import type { PowerLevel } from './deck-blueprint';
 import { analyzeCommander } from './commander-analyzer';
+import { ARCHETYPE_LIBRARY, runSanityCheck } from './archetype-library';
+import type { ArchetypeCategory } from './archetype-library';
 
 interface ClusterArchetype {
-  name: string;
+  key: string;
+  display_name: string;
+  category: ArchetypeCategory;
   matches: (entry: CollectionEntry, getRoles: (e: CollectionEntry) => import('./types').CardRoles) => boolean;
-  minCards: number;
+  exclusions: ((entry: CollectionEntry) => boolean) | null;
   idealCards: number;
-  themes_supported: string[];
-  role_in_deck: 'engine' | 'wincon' | 'synergy';
-}
-
-interface ClusterCandidate {
-  archetype: ClusterArchetype;
-  cards: CollectionEntry[];
-  depth: number;
-  quality: number;
-  relevance: number;
-  score: number;
 }
 
 interface ClusterResult {
@@ -30,7 +23,17 @@ interface ClusterResult {
   matched: number;
 }
 
-function describeGamePlan(cmdAnalysis: CommanderAnalysis, results?: ClusterResult[]): string {
+interface ArchetypeDiagnostic {
+  key: string;
+  display_name: string;
+  category: string;
+  status: 'selected' | 'underfilled' | 'skipped-color' | 'skipped-no-signal' | 'skipped-no-cards' | 'predicate-bug';
+  qualifying: number;
+  ideal: number;
+  reason: string;
+}
+
+function describeGamePlan(cmdAnalysis: CommanderAnalysis, results?: ClusterResult[], diagnostics?: ArchetypeDiagnostic[]): string {
   if (!results || !results.length) {
     const primary = cmdAnalysis.themes.slice(0, 2).map((t) => t[0].toUpperCase() + t.slice(1));
     return primary.length ? primary.join(' / ') : 'Balanced Goodstuff';
@@ -39,327 +42,279 @@ function describeGamePlan(cmdAnalysis: CommanderAnalysis, results?: ClusterResul
   const nameSample = (entries: CollectionEntry[], count = 2): string =>
     entries.slice(0, count).map((e) => e.scryfallData.name).join(', ');
 
-  const wincon = results.filter((r) => r.archetype.role_in_deck === 'wincon');
-  const engines = results.filter((r) => r.archetype.role_in_deck === 'engine');
-  const synergies = results.filter((r) => r.archetype.role_in_deck === 'synergy');
+  const wincon = results.filter((r) => r.archetype.category === 'wincon');
+  const engines = results.filter((r) => r.archetype.category === 'engine');
+  const synergies = results.filter((r) => r.archetype.category === 'synergy');
+  const enabler = results.filter((r) => r.archetype.category === 'enabler');
 
   const parts: string[] = [];
 
   const describeCluster = (r: ClusterResult): string => {
     if (r.added.length === 0) {
-      return `${r.archetype.name}: empty (0/${r.matched} qualifying in collection)`;
+      return `${r.archetype.display_name}: empty (0/${r.matched} qualifying)`;
     }
     if (r.added.length < r.target) {
-      const advice = r.archetype.role_in_deck === 'wincon'
+      const advice = r.archetype.category === 'wincon'
         ? 'Acquiring more options would strengthen this win condition.'
         : 'Acquiring more options would deepen this cluster.';
-      return `${r.archetype.name} (${nameSample(r.added, 2)}): underfilled (${r.added.length}/${r.target}, ${r.matched} qualifying in collection). ${advice}`;
+      return `${r.archetype.display_name} (${nameSample(r.added, 2)}): ${r.added.length}/${r.target} (${r.matched} in collection). ${advice}`;
     }
-    return `${r.archetype.name} (${nameSample(r.added, 2)})`;
+    return `${r.archetype.display_name}: ${r.added.length}/${r.target} ✓`;
   };
 
-  if (wincon.length) {
-    parts.push(`Wins via: ${wincon.map(describeCluster).join('; ')}`);
+  if (wincon.length) parts.push(`Win: ${wincon.map(describeCluster).join('; ')}`);
+  if (engines.length) parts.push(`Engines: ${engines.map(describeCluster).join('; ')}`);
+  if (synergies.length) parts.push(`Synergy: ${synergies.map(describeCluster).join('; ')}`);
+  if (enabler.length) parts.push(`Enablers: ${enabler.map(describeCluster).join('; ')}`);
+
+  // Add compact skip summary
+  if (diagnostics && diagnostics.length > 0) {
+    const skipped = diagnostics.filter(d =>
+      d.status === 'skipped-color' || d.status === 'skipped-no-signal' || d.status === 'skipped-no-cards');
+    if (skipped.length > 0) {
+      const skipReasons = skipped.map(d => `${d.display_name}(${d.reason})`).join(', ');
+      parts.push(`Skipped: ${skipReasons}`);
+    }
   }
-  if (engines.length) {
-    parts.push(`Engines: ${engines.map(describeCluster).join('; ')}`);
-  }
-  if (synergies.length) {
-    parts.push(`Synergy: ${synergies.map(describeCluster).join('; ')}`);
-  }
+
   return parts.join('. ') + '.';
 }
 
-function deriveClusterArchetypes(cmdAnalysis: CommanderAnalysis): ClusterArchetype[] {
-  const archetypes: ClusterArchetype[] = [];
-  const oracle = cmdAnalysis.oracle;
-  const typeLine = cmdAnalysis.typeLine;
-  const themes = new Set(cmdAnalysis.themes);
-
-  const mk = (name: string, matches: ClusterArchetype['matches'], opts: {
-    themes_supported: string[]; role_in_deck: ClusterArchetype['role_in_deck'];
-    minCards?: number; idealCards?: number;
-  }): ClusterArchetype => ({
-    name,
-    matches,
-    minCards: opts.minCards ?? 3,
-    idealCards: opts.idealCards ?? 8,
-    themes_supported: opts.themes_supported,
-    role_in_deck: opts.role_in_deck,
-  });
-
-  // Graveyard → fill (ACTIVELY puts cards into graveyard)
-  if (themes.has('graveyard') || /graveyard|return.*graveyard/i.test(oracle)) {
-    archetypes.push(mk('Graveyard Fill', (entry) => {
-      const oracle = getOracleText(entry.scryfallData).toLowerCase();
-      return /\b(?:mill|discard|dredge|surveil|connive|loot|descend|delirium)\b|put.{0,30}(top|cards?).{0,30}(into|in).{0,15}(graveyard|your graveyard)/i.test(oracle);
-    }, { themes_supported: ['graveyard'], role_in_deck: 'engine' }));
-    archetypes.push(mk('Reanimation Engine', (entry) => {
-      const oracle = getOracleText(entry.scryfallData).toLowerCase();
-      return /return.{0,40}(from.{0,15}graveyard).{0,30}(battlefield|your hand|play)/i.test(oracle);
-    }, { themes_supported: ['graveyard'], role_in_deck: 'wincon', idealCards: 6 }));
-  }
-
-  // Tribal → density + payoffs (MUST reference the specific tribe)
-  if (themes.has('tribal') && cmdAnalysis.subtypes.length > 0) {
-    const sub = cmdAnalysis.subtypes[0];
-    const subLower = sub.toLowerCase();
-    archetypes.push(mk(`${sub} Tribal Density`, (entry) => {
-      const typeLine = getTypeLine(entry.scryfallData).toLowerCase();
-      return typeLine.includes(subLower);
-    }, { themes_supported: ['tribal'], role_in_deck: 'synergy', idealCards: 14 }));
-    archetypes.push(mk(`${sub} Tribal Payoffs`, (entry) => {
-      const oracle = getOracleText(entry.scryfallData).toLowerCase();
-      const typeLine = getTypeLine(entry.scryfallData).toLowerCase();
-      // Must name the tribe specifically, not generic "creatures you control"
-      if (typeLine.includes(subLower)) return true; // e.g., tribal lord creatures
-      if (new RegExp(`${subLower}(s)?\\s+(you|spell|creature|permanent)`, 'i').test(oracle)) return true;
-      if (new RegExp(`(create|put|return).{0,30}\\b${subLower}\\b`, 'i').test(oracle)) return true;
-      if (new RegExp(`(choose|target) \\w* ?${subLower}`, 'i').test(oracle)) return true;
-      if (new RegExp(`for each ${subLower}`, 'i').test(oracle)) return true;
-      return false;
-    }, { themes_supported: ['tribal'], role_in_deck: 'wincon', idealCards: 6 }));
-  }
-
-  // Sacrifice → sac outlets (activated/triggered sac ability) + death triggers
-  if (themes.has('sacrifice') || /sacrifice|dies|whenever.*creature.*dies/i.test(oracle)) {
-    archetypes.push(mk('Sacrifice Outlets', (entry) => {
-      const oracle = getOracleText(entry.scryfallData).toLowerCase();
-      return /sacrifice (a|another|target|an?) .{0,25}(creature|permanent):/i.test(oracle)
-        || /(whenever|at the beginning).{0,40}you may sacrifice/i.test(oracle);
-    }, { themes_supported: ['sacrifice'], role_in_deck: 'engine', idealCards: 5 }));
-    if (cmdAnalysis.wants.includes('dies') || /dies|whenever.*creature.*dies/i.test(oracle)) {
-      archetypes.push(mk('Death Triggers', (entry) => {
-        const oracle = getOracleText(entry.scryfallData).toLowerCase();
-        return /when(?:ever)?.{0,25}(dies|is put into.{0,10}graveyard from)/i.test(oracle);
-      }, { themes_supported: ['sacrifice'], role_in_deck: 'wincon', idealCards: 5 }));
+function buildPredicate(entry: ArchetypeEntry): (e: CollectionEntry) => boolean {
+  return (e: CollectionEntry) => {
+    const oracle = getOracleText(e.scryfallData).toLowerCase();
+    const typeLine = getTypeLine(e.scryfallData).toLowerCase();
+    if (!entry.card_predicate.test(oracle)) {
+      // Also test against type_line context
+      if (!entry.card_predicate.test(typeLine + ' ' + oracle)) return false;
     }
-  }
-
-  // Tokens → token creation + go-wide payoffs
-  if (themes.has('tokens') || /create.*token|populate/i.test(oracle)) {
-    archetypes.push(mk('Token Engine', (entry) => {
-      const oracle = getOracleText(entry.scryfallData).toLowerCase();
-      return /create.{0,20}token|populate|amass|offspring/i.test(oracle);
-    }, { themes_supported: ['tokens'], role_in_deck: 'engine', idealCards: 7 }));
-    archetypes.push(mk('Go-Wide Payoffs', (entry) => {
-      const oracle = getOracleText(entry.scryfallData).toLowerCase();
-      return /creatures you control get \+|overrun|triumph of the hordes|extra combat/i.test(oracle);
-    }, { themes_supported: ['tokens', 'tribal'], role_in_deck: 'wincon', idealCards: 4 }));
-  }
-
-  // Spellslinger → spell payoffs (NOT just "is an instant/sorcery")
-  if (themes.has('spellslinger') || /whenever you cast.*instant|whenever you cast.*sorcery|magecraft|storm|copy.*spell/i.test(oracle)) {
-    archetypes.push(mk('Spell Payoffs', (entry) => {
-      const oracle = getOracleText(entry.scryfallData).toLowerCase();
-      return /whenever you cast|magecraft|prowess|storm|cop(?:y|ies).{0,10}(target )?spell/i.test(oracle);
-    }, { themes_supported: ['spellslinger'], role_in_deck: 'wincon', idealCards: 5 }));
-  }
-
-  // Blink → flicker effects + ETB value
-  if (themes.has('blink') || /exile.*return.*battlefield|flicker|blink/i.test(oracle)) {
-    archetypes.push(mk('Blink Engine', (entry) => {
-      const oracle = getOracleText(entry.scryfallData).toLowerCase();
-      return /exile.{0,20}(return|then return).{0,30}battlefield|flicker|blink/i.test(oracle);
-    }, { themes_supported: ['blink'], role_in_deck: 'engine', idealCards: 6 }));
-    archetypes.push(mk('ETB Value', (entry) => {
-      const oracle = getOracleText(entry.scryfallData).toLowerCase();
-      if (isLandCard(entry.scryfallData)) return false;
-      return /when(?:ever)?.{0,30}(enters|enters the battlefield)/i.test(oracle);
-    }, { themes_supported: ['blink', 'graveyard'], role_in_deck: 'synergy', idealCards: 10 }));
-  }
-
-  // Counters
-  if (themes.has('counters') || /\+1\/\+1 counter|proliferate|adapt|evolve|bolster/i.test(oracle)) {
-    archetypes.push(mk('Counter Engine', (entry) => {
-      const oracle = getOracleText(entry.scryfallData).toLowerCase();
-      return /\+1\/\+1 counter|proliferate|adapt|evolve|bolster|support/i.test(oracle);
-    }, { themes_supported: ['counters'], role_in_deck: 'engine' }));
-  }
-
-  // Voltron
-  if (themes.has('voltron') || /equipment|aura|attach|equip/i.test(oracle)) {
-    archetypes.push(mk('Commander Enhancement', (entry) => {
-      const oracle = getOracleText(entry.scryfallData).toLowerCase();
-      const typeLine = getTypeLine(entry.scryfallData).toLowerCase();
-      if (/equipment\b/i.test(typeLine) || /\baura\b/i.test(typeLine)) return true;
-      return /equip\b|enchant creature|attach/i.test(oracle);
-    }, { themes_supported: ['voltron'], role_in_deck: 'engine', idealCards: 6 }));
-  }
-
-  // Damage → burn to opponents
-  if (themes.has('damage') || /deal.*damage|each opponent loses|burn|ping/i.test(oracle)) {
-    archetypes.push(mk('Burn Engine', (entry) => {
-      const oracle = getOracleText(entry.scryfallData).toLowerCase();
-      return /deal.{0,30}damage to (each|target) opponent|each opponent loses|whenever.{0,20}damage/i.test(oracle);
-    }, { themes_supported: ['damage'], role_in_deck: 'wincon', idealCards: 5 }));
-  }
-
-  // Draw synergies
-  if (themes.has('draw') || /draw.*card|whenever you draw|wheel/i.test(oracle)) {
-    archetypes.push(mk('Draw Engine', (entry) => {
-      const oracle = getOracleText(entry.scryfallData).toLowerCase();
-      return /whenever you draw|draw.{0,20}(additional|extra|that many)/i.test(oracle);
-    }, { themes_supported: ['draw'], role_in_deck: 'engine', idealCards: 6 }));
-  }
-
-  // Landfall
-  if (themes.has('landfall') || /landfall|whenever a land enters/i.test(oracle)) {
-    archetypes.push(mk('Landfall Engine', (entry) => {
-      const oracle = getOracleText(entry.scryfallData).toLowerCase();
-      return /landfall|whenever.{0,10}(a|another) land enters/i.test(oracle);
-    }, { themes_supported: ['landfall'], role_in_deck: 'engine', idealCards: 7 }));
-  }
-
-  // Artifacts
-  if (themes.has('artifacts') || /artifact.*you control|affinity|improvise/i.test(oracle)) {
-    archetypes.push(mk('Artifact Engine', (entry) => {
-      const oracle = getOracleText(entry.scryfallData).toLowerCase();
-      const typeLine = getTypeLine(entry.scryfallData).toLowerCase();
-      return /artifact\b/i.test(typeLine)
-        || /affinity.{0,10}artifacts|improvise|artifact.{0,15}(you control|spells?)|treasure|clue|food token/i.test(oracle);
-    }, { themes_supported: ['artifacts'], role_in_deck: 'engine' }));
-  }
-
-  // Enchantments
-  if (themes.has('enchantments') || /enchantment|constellation|enchant/i.test(oracle)) {
-    archetypes.push(mk('Enchantment Engine', (entry) => {
-      const oracle = getOracleText(entry.scryfallData).toLowerCase();
-      const typeLine = getTypeLine(entry.scryfallData).toLowerCase();
-      return /enchantment\b/i.test(typeLine) || /constellation|enchant/i.test(oracle);
-    }, { themes_supported: ['enchantments'], role_in_deck: 'engine' }));
-  }
-
-  // Commander-specific keyword archetypes
-  if (/evoke/i.test(oracle)) {
-    archetypes.push(mk('Evoke Engine', (entry) => {
-      const oracle = getOracleText(entry.scryfallData).toLowerCase();
-      const typeLine = getTypeLine(entry.scryfallData).toLowerCase();
-      const subLower = cmdAnalysis.subtypes[0]?.toLowerCase();
-      if (!subLower) return /evoke/i.test(oracle);
-      return typeLine.includes(subLower) && /evoke/i.test(oracle);
-    }, { themes_supported: ['graveyard', 'tribal'], role_in_deck: 'engine', idealCards: 5 }));
-  }
-  if (cmdAnalysis.wants.includes('attack') || /attacks|combat damage/i.test(oracle)) {
-    archetypes.push(mk('Combat Finishers', (entry) => {
-      const oracle = getOracleText(entry.scryfallData).toLowerCase();
-      return /extra combat|creatures you control get \+|overrun|triumph of the hordes/i.test(oracle);
-    }, { themes_supported: ['damage', 'tribal'], role_in_deck: 'wincon', idealCards: 4 }));
-  }
-
-  // Recursion Engine: anything that returns cards from graveyard
-  archetypes.push(mk('Recursion Engine', (entry) => {
-    const oracle = getOracleText(entry.scryfallData).toLowerCase();
-    return /return.{0,30}(from.{0,10}graveyard|target.{0,15}(creature|permanent).{0,10}from.{0,10}graveyard)/i.test(oracle)
-      || /reanimate|unearth|flashback|disturb|escape|recover|buyback|delve|embalm/i.test(oracle);
-  }, { themes_supported: ['graveyard', 'sacrifice', 'spellslinger'], role_in_deck: 'engine', idealCards: 6 }));
-
-  // Value Engine: incidental card advantage, NOT just "has draw a card in text"
-  archetypes.push(mk('Value Engine', (entry) => {
-    const oracle = getOracleText(entry.scryfallData).toLowerCase();
-    return /scry \d|surveil \d|cascade|discover|investigate|venture|connive|learn/i.test(oracle);
-  }, { themes_supported: ['draw'], role_in_deck: 'synergy', idealCards: 6 }));
-
-  // Deduplicate by name
-  const seen = new Set<string>();
-  return archetypes.filter((a) => {
-    const key = a.name.toLowerCase();
-    if (seen.has(key)) return false;
-    seen.add(key);
+    if (entry.exclusions && entry.exclusions.test(oracle)) return false;
     return true;
-  });
-}
-
-function scoreCluster(
-  archetype: ClusterArchetype,
-  valid: CollectionEntry[],
-  getRoles: (entry: CollectionEntry) => import('./types').CardRoles,
-): ClusterCandidate | null {
-  const matches = valid.filter((entry) => {
-    if (isLandCard(entry.scryfallData)) return false;
-    return archetype.matches(entry, getRoles);
-  });
-
-  if (matches.length < archetype.minCards) return null;
-
-  // Depth: 0–10 scale, more cards = higher depth
-  const depth = Math.min(10, matches.length / 2.5);
-
-  // Quality: average composite of top idealCards*2 matches
-  const ideal = archetype.idealCards * 2;
-  const topMatches = [...matches]
-    .sort((a, b) => b.scores.composite - a.scores.composite)
-    .slice(0, Math.max(ideal, archetype.minCards));
-  const avgComposite = topMatches.reduce((s, e) => s + e.scores.composite, 0) / topMatches.length;
-  const quality = Math.min(10, avgComposite / 9.0);
-
-  // Relevance: how many themes match * 3, capped at 10
-  const relevance = Math.min(10, archetype.themes_supported.length * 4 + (archetype.role_in_deck === 'wincon' ? 5 : 0));
-
-  const score = Math.round((depth * 1.5 + quality * 2.0 + relevance * 2.5) * 10) / 10;
-
-  return {
-    archetype,
-    cards: matches,
-    depth: Math.round(depth * 10) / 10,
-    quality: Math.round(quality * 10) / 10,
-    relevance: Math.round(relevance * 10) / 10,
-    score,
   };
 }
 
-function selectClusters(
-  candidates: ClusterCandidate[],
+function buildExclusions(entry: ArchetypeEntry): ((e: CollectionEntry) => boolean) | null {
+  if (!entry.exclusions) return null;
+  return (e: CollectionEntry) => getOracleText(e.scryfallData).toLowerCase().match(entry.exclusions!) !== null;
+}
+
+function proposeArchetypes(
   cmdAnalysis: CommanderAnalysis,
-): ClusterCandidate[] {
-  if (!candidates.length) return [];
+  valid: CollectionEntry[],
+): { selected: ClusterArchetype[]; diagnostics: ArchetypeDiagnostic[] } {
+  const diagnostics: ArchetypeDiagnostic[] = [];
+  const selected: ClusterArchetype[] = [];
+  const cmdOracle = cmdAnalysis.oracle.toLowerCase();
+  const cmdTypeLine = cmdAnalysis.typeLine.toLowerCase();
+  const cmdCI = new Set(cmdAnalysis.ci.map(c => c.toUpperCase()));
 
-  const sorted = [...candidates].sort((a, b) => b.score - a.score);
-  const selected: ClusterCandidate[] = [];
-  const coveredThemes = new Set<string>();
-  const needsWincon = true;
+  const sanityBugs = runSanityCheck(ARCHETYPE_LIBRARY, valid);
+  for (const bug of sanityBugs) console.warn(bug);
 
-  for (const candidate of sorted) {
-    if (selected.length >= 10) break;
+  interface ScoredCandidate {
+    archetype: ClusterArchetype;
+    score: number;
+    qualifying: number;
+    index: number;
+  }
+  const scored: ScoredCandidate[] = [];
 
-    // Preference for clusters whose cards overlap with already-selected clusters
-    let overlapBonus = 0;
-    if (selected.length > 0) {
-      const existingIds = new Set<string>();
-      for (const sc of selected) {
-        for (const c of sc.cards) existingIds.add(c.scryfallData.id);
+  for (let i = 0; i < ARCHETYPE_LIBRARY.length; i++) {
+    const entry = ARCHETYPE_LIBRARY[i];
+
+    // Handle tribal archetypes — fill in tribe name from commander subtypes
+    let displayName = entry.display_name;
+    let predicateFn = buildPredicate(entry);
+    let exclusionFn = buildExclusions(entry);
+
+    if (entry.key === 'TRIBAL_DENSITY' || entry.key === 'TRIBAL_PAYOFF') {
+      // Need a tribe from commander subtypes
+      if (!cmdAnalysis.subtypes.length) {
+        diagnostics.push({
+          key: entry.key, display_name: displayName, category: entry.category,
+          status: 'skipped-no-signal', qualifying: 0, ideal: entry.ideal_count,
+          reason: 'no tribe (no commander subtypes)',
+        });
+        continue;
       }
-      for (const c of candidate.cards) {
-        if (existingIds.has(c.scryfallData.id)) overlapBonus++;
+      const tribe = cmdAnalysis.subtypes[0];
+      displayName = entry.display_name.replace('{tribe}', tribe);
+
+      // Build tribe-specific predicates
+      const tribeLower = tribe.toLowerCase();
+      if (entry.key === 'TRIBAL_DENSITY') {
+        predicateFn = (e: CollectionEntry) => {
+          const tl = getTypeLine(e.scryfallData).toLowerCase();
+          if (tl.includes(tribeLower)) return true;
+          const oracle = getOracleText(e.scryfallData).toLowerCase();
+          return new RegExp(`\\b${tribeLower}s?\\b`, 'i').test(oracle)
+            && /you control|other |each |enters|attacks?|dies|cast|deals?/i.test(oracle);
+        };
+      } else {
+        predicateFn = (e: CollectionEntry) => {
+          const oracle = getOracleText(e.scryfallData).toLowerCase();
+          return new RegExp(`\\b${tribeLower}s?\\b.{0,40}(?:you control|gets?|gain|\\+\\d|enters|attacks?|dies|cast|deals?)`, 'i').test(oracle)
+            || new RegExp(`(?:create|put|return).{0,40}\\b${tribeLower}\\b`, 'i').test(oracle);
+        };
+      }
+      exclusionFn = null;
+    }
+
+    // Color check
+    if (entry.required_colors.length > 0) {
+      const hasColor = entry.required_colors.some(c => cmdCI.has(c));
+      if (!hasColor) {
+        diagnostics.push({
+          key: entry.key, display_name: displayName, category: entry.category,
+          status: 'skipped-color', qualifying: 0, ideal: entry.ideal_count,
+          reason: `needs ${entry.required_colors.join('/')}`,
+        });
+        continue;
       }
     }
 
-    const effectiveScore = candidate.score + overlapBonus * 0.5;
+    // Commander signals check
+    if (!entry.always_proposed && entry.commander_signals.length > 0) {
+      const matched = entry.commander_signals.some(sig =>
+        sig.test(cmdOracle) || sig.test(cmdTypeLine));
+      if (!matched) {
+        diagnostics.push({
+          key: entry.key, display_name: displayName, category: entry.category,
+          status: 'skipped-no-signal', qualifying: 0, ideal: entry.ideal_count,
+          reason: 'no commander signal',
+        });
+        continue;
+      }
+    }
 
-    // Select if we need wincon and this is one, or if we need theme coverage
-    const isWincon = candidate.archetype.role_in_deck === 'wincon';
-    const hasWincon = selected.some((s) => s.archetype.role_in_deck === 'wincon');
-    const addsNewTheme = candidate.archetype.themes_supported.some((t) => !coveredThemes.has(t));
+    // Find qualifying cards
+    const qualifying = valid.filter(e => {
+      if (isLandCard(e.scryfallData)) return false;
+      if (!predicateFn(e)) return false;
+      if (exclusionFn && exclusionFn(e)) return false;
+      return true;
+    });
 
-    if ((needsWincon && isWincon) || addsNewTheme || selected.length < 4) {
-      selected.push(candidate);
-      for (const t of candidate.archetype.themes_supported) coveredThemes.add(t);
-    } else if (overlapBonus >= 3 && selected.length < 10) {
-      selected.push(candidate);
+    // Also do a type-line check for rocks and dorks
+    if (entry.key === 'ROCKS_RAMP') {
+      // Must be artifact non-creature
+      const final = qualifying.filter(e => {
+        const tl = getTypeLine(e.scryfallData).toLowerCase();
+        return tl.includes('artifact') && !tl.includes('creature');
+      });
+      qualifying.length = 0;
+      qualifying.push(...final);
+    }
+    if (entry.key === 'LAND_RAMP_GREEN') {
+      const final = qualifying.filter(e => {
+        const tl = getTypeLine(e.scryfallData).toLowerCase();
+        return tl.includes('sorcery') || tl.includes('instant');
+      });
+      qualifying.length = 0;
+      qualifying.push(...final);
+    }
+    if (entry.key === 'DORK_RAMP') {
+      const final = qualifying.filter(e => {
+        const tl = getTypeLine(e.scryfallData).toLowerCase();
+        return tl.includes('creature') && (e.scryfallData.cmc || 0) <= 2;
+      });
+      qualifying.length = 0;
+      qualifying.push(...final);
+    }
+
+    if (qualifying.length === 0 && entry.category !== 'enabler') {
+      diagnostics.push({
+        key: entry.key, display_name: displayName, category: entry.category,
+        status: 'skipped-no-cards', qualifying: 0, ideal: entry.ideal_count,
+        reason: '0 qualifying cards',
+      });
+      continue;
+    }
+
+    // Score
+    const categoryWeight: Record<string, number> = { wincon: 1.5, engine: 1.2, synergy: 1.0, enabler: 0.8 };
+    const signalStrength = entry.always_proposed ? 1.5 : Math.max(1, entry.commander_signals.filter(s => s.test(cmdOracle) || s.test(cmdTypeLine)).length);
+    const score = qualifying.length * signalStrength * (categoryWeight[entry.category] || 1.0);
+
+    const archetype: ClusterArchetype = {
+      key: entry.key,
+      display_name: displayName,
+      category: entry.category,
+      matches: predicateFn,
+      exclusions: exclusionFn,
+      idealCards: entry.ideal_count,
+    };
+
+    scored.push({ archetype, score, qualifying: qualifying.length, index: i });
+  }
+
+  // Selection logic
+  if (!scored.length) return { selected, diagnostics };
+
+  scored.sort((a, b) => b.score - a.score);
+
+  // Always include enablers
+  const enablers = scored.filter(s => s.archetype.category === 'enabler');
+  for (const e of enablers) {
+    selected.push(e.archetype);
+    diagnostics.push({
+      key: e.archetype.key, display_name: e.archetype.display_name,
+      category: e.archetype.category,
+      status: e.qualifying < e.archetype.idealCards ? 'underfilled' : 'selected',
+      qualifying: e.qualifying, ideal: e.archetype.idealCards,
+      reason: e.qualifying >= e.archetype.idealCards ? 'filled' : `${e.qualifying}/${e.archetype.idealCards}`,
+    });
+  }
+
+  // Pick best wincon
+  const wincons = scored.filter(s => s.archetype.category === 'wincon');
+  if (wincons.length > 0) {
+    const best = wincons[0]; // already sorted by score
+    if (!selected.includes(best.archetype)) {
+      selected.push(best.archetype);
+      diagnostics.push({
+        key: best.archetype.key, display_name: best.archetype.display_name,
+        category: best.archetype.category,
+        status: best.qualifying < best.archetype.idealCards ? 'underfilled' : 'selected',
+        qualifying: best.qualifying, ideal: best.archetype.idealCards,
+        reason: `top wincon, score=${best.score.toFixed(1)}`,
+      });
     }
   }
 
-  // If we still have no wincon, force the highest-scored wincon in
-  if (!selected.some((s) => s.archetype.role_in_deck === 'wincon')) {
-    const bestWincon = sorted.find((s) => s.archetype.role_in_deck === 'wincon');
-    if (bestWincon && !selected.includes(bestWincon)) {
-      selected.push(bestWincon);
-    }
+  // Pick top engines (up to 5)
+  const engines = scored.filter(s => s.archetype.category === 'engine' && !selected.includes(s.archetype));
+  for (const e of engines.slice(0, 5)) {
+    selected.push(e.archetype);
+    diagnostics.push({
+      key: e.archetype.key, display_name: e.archetype.display_name,
+      category: e.archetype.category,
+      status: e.qualifying < e.archetype.idealCards ? 'underfilled' : 'selected',
+      qualifying: e.qualifying, ideal: e.archetype.idealCards,
+      reason: e.qualifying >= e.archetype.idealCards ? `${e.qualifying}/${e.archetype.idealCards}` : `${e.qualifying}/${e.archetype.idealCards}`,
+    });
   }
 
-  // Deduplicate
-  const seen = new Set<ClusterCandidate>();
-  return selected.filter((s) => { const dup = seen.has(s); seen.add(s); return !dup; });
+  // Pick top synergies (up to 3)
+  const synergies = scored.filter(s => s.archetype.category === 'synergy' && !selected.includes(s.archetype));
+  for (const e of synergies.slice(0, 3)) {
+    selected.push(e.archetype);
+    diagnostics.push({
+      key: e.archetype.key, display_name: e.archetype.display_name,
+      category: e.archetype.category,
+      status: e.qualifying < e.archetype.idealCards ? 'underfilled' : 'selected',
+      qualifying: e.qualifying, ideal: e.archetype.idealCards,
+      reason: e.qualifying >= e.archetype.idealCards ? `${e.qualifying}/${e.archetype.idealCards}` : `${e.qualifying}/${e.archetype.idealCards}`,
+    });
+  }
+
+  // Log all diagnostics to console
+  console.log('[Archetype] Proposer results:');
+  for (const d of diagnostics) {
+    console.log(`[Archetype] ${d.key}: ${d.status} (${d.qualifying}/${d.ideal}) — ${d.reason}`);
+  }
+
+  return { selected, diagnostics };
 }
 
 function computePipWeight(entries: CollectionEntry[]): Record<string, number> {
@@ -860,119 +815,75 @@ export function buildOptimalDeck(
   };
 
   // === CLUSTER-FIRST BUILDING ===
-  // Phase 1: Derive and score cluster archetypes
-  const allArchetypes = deriveClusterArchetypes(cmdAnalysis);
-  const candidates: ClusterCandidate[] = [];
-  for (const archetype of allArchetypes) {
-    const result = scoreCluster(archetype, valid, getRoles);
-    if (result) candidates.push(result);
-  }
+  // Phases 0-1: Propose archetypes from library + run sanity check
+  const { selected: selectedArchetypes, diagnostics } = proposeArchetypes(cmdAnalysis, valid);
 
-  // Phase 2: Select top clusters
-  const selectedClusters = selectClusters(candidates, cmdAnalysis);
-
-  // Log cluster selection
-  console.log('[Cluster] Selected clusters:');
-  for (const cluster of selectedClusters) {
-    console.log(`  "${cluster.archetype.name}" depth=${cluster.depth} quality=${cluster.quality} relevance=${cluster.relevance} score=${cluster.score} role=${cluster.archetype.role_in_deck} (${cluster.cards.length} cards)`);
-  }
-
-  // Phase 3: Allocate non-land slots across clusters
-  const totalScore = selectedClusters.reduce((s, c) => s + c.score, 0);
+  // Phase 2: Allocate non-land slots across selected archetypes
   const nonLandTarget = 99 - blueprint.lands;
-  let clusterSlotsAllocated = 0;
-  const clusterAlloc: Map<ClusterCandidate, number> = new Map();
-
-  if (selectedClusters.length > 0 && totalScore > 0) {
-    for (const cluster of selectedClusters) {
-      const idealShare = Math.round((cluster.score / totalScore) * nonLandTarget * 0.7); // 70% to clusters
-      const capped = Math.min(idealShare, cluster.archetype.idealCards);
-      clusterAlloc.set(cluster, Math.max(Math.min(cluster.archetype.minCards, cluster.cards.length), capped));
-      clusterSlotsAllocated += clusterAlloc.get(cluster)!;
-    }
+  const clusterAlloc = new Map<ClusterArchetype, number>();
+  for (const a of selectedArchetypes) {
+    const qualifying = valid.filter(e => !isLandCard(e.scryfallData) && a.matches(e, getRoles) && (!a.exclusions || !a.exclusions(e))).length;
+    const alloc = Math.min(a.idealCards, Math.max(2, Math.round(qualifying * 0.8)));
+    clusterAlloc.set(a, alloc);
   }
 
-  // Phase 4: Fill each cluster with its best cards, track results
+  // Phase 3: Fill each cluster with its best cards
   const clusterResults: ClusterResult[] = [];
-  const clusterCardIds = new Map<string, ClusterCandidate[]>();
-  for (const cluster of selectedClusters) {
-    const alloc = clusterAlloc.get(cluster) || 0;
-    if (alloc <= 0) {
-      clusterResults.push({ archetype: cluster.archetype, added: [], target: alloc, matched: cluster.cards.length });
-      continue;
-    }
-    const ranked = [...cluster.cards].sort((a, b) => b.scores.composite - a.scores.composite);
+  const clusterCardIds = new Map<string, ClusterArchetype[]>();
+  for (const a of selectedArchetypes) {
+    const alloc = clusterAlloc.get(a) || 0;
+    const qualifying = valid.filter(e => !isLandCard(e.scryfallData) && a.matches(e, getRoles) && (!a.exclusions || !a.exclusions(e)));
+    const ranked = [...qualifying].sort((a, b) => b.scores.composite - a.scores.composite);
     const addedEntries: CollectionEntry[] = [];
     for (const entry of ranked) {
       if (addedEntries.length >= alloc) break;
       const card = entry.scryfallData;
       const key = getDeckCardKey(card);
-
       if (selectedKeys.has(key) || cardIds.includes(card.id)) {
         let inOtherClusters = 0;
-        for (const sc of selectedClusters) {
-          if (sc === cluster) continue;
-          if (sc.cards.some((c) => c.scryfallData.id === card.id)) inOtherClusters++;
+        for (const other of selectedArchetypes) {
+          if (other === a) continue;
+          if (other.matches(entry, getRoles) && (!other.exclusions || !other.exclusions(entry))) inOtherClusters++;
         }
         if (inOtherClusters === 0) continue;
       }
-
-      if (addEntry(entry, cluster.archetype.name, `${cluster.archetype.role_in_deck} for "${cluster.archetype.name}" cluster`)) {
+      if (addEntry(entry, a.display_name, `${a.category} for "${a.display_name}" cluster`)) {
         addedEntries.push(entry);
         const ccs = clusterCardIds.get(card.id) || [];
-        ccs.push(cluster);
+        ccs.push(a);
         clusterCardIds.set(card.id, ccs);
       }
     }
-    clusterResults.push({ archetype: cluster.archetype, added: addedEntries, target: alloc, matched: cluster.cards.length });
+    clusterResults.push({ archetype: a, added: addedEntries, target: alloc, matched: qualifying.length });
   }
 
-  // Phase 5: Compute cluster overlap score
+  // Phase 4: Compute cluster overlap score
   let overlapCount = 0;
-  for (const [, clusters] of clusterCardIds) {
-    if (clusters.length >= 2) overlapCount++;
+  for (const [, cs] of clusterCardIds) {
+    if (cs.length >= 2) overlapCount++;
   }
   console.log(`[Cluster] overlap: ${overlapCount} cards serve 2+ clusters`);
 
-  // Phase 6: Fill support slots (tutors, protection, then role-based fill)
-  const supportSlotsTarget = nonLandTarget - cardIds.length;
-
-  // Tutors
-  if (blueprint.tutors > 0) {
-    const tutorCandidates = valid
-      .filter((entry) => {
-        const key = getDeckCardKey(entry.scryfallData);
-        return !selectedKeys.has(key) && getRoles(entry).tutor && !isLandCard(entry.scryfallData);
-      })
-      .sort((a, b) => b.scores.composite - a.scores.composite);
-    for (const entry of tutorCandidates.slice(0, blueprint.tutors)) {
+  // Phase 5: Fill remaining slots from enabler clusters + role-based fill
+  const enablerPatterns = selectedArchetypes.filter(a => a.category === 'enabler');
+  for (const a of enablerPatterns) {
+    const alloc = clusterAlloc.get(a) || 0;
+    if (alloc <= 0) continue;
+    const qualifying = valid.filter(e => !isLandCard(e.scryfallData) && a.matches(e, getRoles) && (!a.exclusions || !a.exclusions(e)));
+    const ranked = [...qualifying].sort((a, b) => b.scores.composite - a.scores.composite);
+    for (const entry of ranked) {
       if (cardIds.length >= nonLandTarget) break;
-      addEntry(entry, 'Tutors', 'Finds the best card for the current board');
+      const key = getDeckCardKey(entry.scryfallData);
+      if (selectedKeys.has(key) || cardIds.includes(entry.scryfallData.id)) continue;
+      addEntry(entry, a.display_name, `enabler: ${a.display_name}`);
     }
   }
 
-  // Protection
-  if (blueprint.protection > 0) {
-    const protCandidates = valid
-      .filter((entry) => {
-        const key = getDeckCardKey(entry.scryfallData);
-        return !selectedKeys.has(key) && getRoles(entry).protection && !isLandCard(entry.scryfallData);
-      })
-      .sort((a, b) => b.scores.composite - a.scores.composite)
-      .slice(0, Math.max(1, blueprint.protection - 1));
-    for (const entry of protCandidates) {
-      if (cardIds.length >= nonLandTarget) break;
-      addEntry(entry, 'Protection', 'Defends commander and key engine pieces');
-    }
-  }
-
-  // Phase 7: Role-aware fill for remaining non-land slots
-  // Use a single-pass greedy fill like the old approach, but prioritize cards that fill blueprint gaps
+  // Phase 6: Role-aware greedy fill for any remaining non-land slots
   let fillSafety = 0;
   while (cardIds.length < nonLandTarget && fillSafety < 260) {
     fillSafety++;
     const profile = buildDeckProfile(entriesInDeck, cmdAnalysis, getRoles);
-
     const fillCandidates: CollectionEntry[] = [];
     for (const entry of valid) {
       if (!selectedKeys.has(getDeckCardKey(entry.scryfallData))) {
@@ -981,27 +892,18 @@ export function buildOptimalDeck(
       }
     }
     if (!fillCandidates.length) break;
-
     let best: { entry: CollectionEntry; score: number; role: string; reason: string } | null = null;
     for (const entry of fillCandidates) {
       if (getRoles(entry).land) continue;
       const scored = scoreCandidateForDeck(entry, profile, blueprint, cmdAnalysis, getRoles);
       if (scored && (!best || scored.score > best.score)) best = { entry, ...scored };
     }
-
     if (!best) break;
     addEntry(best.entry, best.role, best.reason);
   }
 
-  // Track selected clusters for game plan
+  // Track final results + diagnostics for game plan
   const finalResults = clusterResults;
-
-  // Log per-cluster fill status
-  for (const r of finalResults) {
-    if (r.added.length < r.target) {
-      console.log(`[Cluster] "${r.archetype.name}" underfilled: ${r.added.length}/${r.target} (${r.matched} qualifying in collection)`);
-    }
-  }
 
   // === PHASE 8: Compute pip-weight from actual selected nonland cards ===
   const pipWeight = computePipWeight(entriesInDeck);
@@ -1100,7 +1002,7 @@ export function buildOptimalDeck(
   return {
     cardIds: repaired.cardIds,
     roles: repaired.roles,
-    gamePlan: describeGamePlan(cmdAnalysis, finalResults),
+    gamePlan: describeGamePlan(cmdAnalysis, finalResults, diagnostics),
   };
 }
 
