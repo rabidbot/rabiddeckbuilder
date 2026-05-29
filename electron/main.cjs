@@ -104,6 +104,12 @@ function openWindow(port) {
   } else {
     mainWindow.loadURL(`http://127.0.0.1:${port}/`);
   }
+
+  mainWindow.webContents.on('before-input-event', (_event, input) => {
+    if (input.control && input.shift && (input.code === 'KeyI' || input.key?.toUpperCase() === 'I')) {
+      mainWindow.webContents.toggleDevTools();
+    }
+  });
 }
 
 app.on('window-all-closed', () => {
