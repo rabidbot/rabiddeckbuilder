@@ -7,9 +7,7 @@ import { analyzeCommander } from './commander-analyzer';
 
 interface ClusterArchetype {
   name: string;
-  requires: string[];
-  typePatterns: string[];
-  roleFlags: string[];
+  matches: (entry: CollectionEntry, getRoles: (e: CollectionEntry) => import('./types').CardRoles) => boolean;
   minCards: number;
   idealCards: number;
   themes_supported: string[];
@@ -25,31 +23,49 @@ interface ClusterCandidate {
   score: number;
 }
 
-function describeGamePlan(cmdAnalysis: CommanderAnalysis, clusters?: ClusterCandidate[]): string {
-  if (!clusters || !clusters.length) {
+interface ClusterResult {
+  archetype: ClusterArchetype;
+  added: CollectionEntry[];
+  target: number;
+  matched: number;
+}
+
+function describeGamePlan(cmdAnalysis: CommanderAnalysis, results?: ClusterResult[]): string {
+  if (!results || !results.length) {
     const primary = cmdAnalysis.themes.slice(0, 2).map((t) => t[0].toUpperCase() + t.slice(1));
     return primary.length ? primary.join(' / ') : 'Balanced Goodstuff';
   }
-  const wincon = clusters.find((c) => c.archetype.role_in_deck === 'wincon');
-  const engines = clusters.filter((c) => c.archetype.role_in_deck === 'engine');
-  const synergies = clusters.filter((c) => c.archetype.role_in_deck === 'synergy');
 
-  const nameSample = (c: ClusterCandidate, count = 2): string => {
-    const top = c.cards.sort((a, b) => b.scores.composite - a.scores.composite).slice(0, count);
-    return top.map((e) => e.scryfallData.name).join(', ');
-  };
+  const nameSample = (entries: CollectionEntry[], count = 2): string =>
+    entries.slice(0, count).map((e) => e.scryfallData.name).join(', ');
+
+  const wincon = results.filter((r) => r.archetype.role_in_deck === 'wincon');
+  const engines = results.filter((r) => r.archetype.role_in_deck === 'engine');
+  const synergies = results.filter((r) => r.archetype.role_in_deck === 'synergy');
 
   const parts: string[] = [];
-  if (wincon) {
-    parts.push(`This deck wins via ${wincon.archetype.name} (${nameSample(wincon, 3)})`);
+
+  const describeCluster = (r: ClusterResult): string => {
+    if (r.added.length === 0) {
+      return `${r.archetype.name}: empty (0/${r.matched} qualifying in collection)`;
+    }
+    if (r.added.length < r.target) {
+      const advice = r.archetype.role_in_deck === 'wincon'
+        ? 'Acquiring more options would strengthen this win condition.'
+        : 'Acquiring more options would deepen this cluster.';
+      return `${r.archetype.name} (${nameSample(r.added, 2)}): underfilled (${r.added.length}/${r.target}, ${r.matched} qualifying in collection). ${advice}`;
+    }
+    return `${r.archetype.name} (${nameSample(r.added, 2)})`;
+  };
+
+  if (wincon.length) {
+    parts.push(`Wins via: ${wincon.map(describeCluster).join('; ')}`);
   }
   if (engines.length) {
-    const engineList = engines.map((e) => `${e.archetype.name} (${nameSample(e)})`).join('; ');
-    parts.push(`Engines: ${engineList}`);
+    parts.push(`Engines: ${engines.map(describeCluster).join('; ')}`);
   }
   if (synergies.length) {
-    const synList = synergies.map((s) => s.archetype.name).join(', ');
-    parts.push(`Synergy: ${synList}`);
+    parts.push(`Synergy: ${synergies.map(describeCluster).join('; ')}`);
   }
   return parts.join('. ') + '.';
 }
@@ -60,272 +76,189 @@ function deriveClusterArchetypes(cmdAnalysis: CommanderAnalysis): ClusterArchety
   const typeLine = cmdAnalysis.typeLine;
   const themes = new Set(cmdAnalysis.themes);
 
-  const mk = (name: string, patterns: { requires: string[]; typePatterns: string[]; roleFlags: string[]; themes_supported: string[]; role_in_deck: ClusterArchetype['role_in_deck']; minCards?: number; idealCards?: number }): ClusterArchetype => ({
+  const mk = (name: string, matches: ClusterArchetype['matches'], opts: {
+    themes_supported: string[]; role_in_deck: ClusterArchetype['role_in_deck'];
+    minCards?: number; idealCards?: number;
+  }): ClusterArchetype => ({
     name,
-    requires: patterns.requires,
-    typePatterns: patterns.typePatterns,
-    roleFlags: patterns.roleFlags,
-    minCards: patterns.minCards ?? 3,
-    idealCards: patterns.idealCards ?? 8,
-    themes_supported: patterns.themes_supported,
-    role_in_deck: patterns.role_in_deck,
+    matches,
+    minCards: opts.minCards ?? 3,
+    idealCards: opts.idealCards ?? 8,
+    themes_supported: opts.themes_supported,
+    role_in_deck: opts.role_in_deck,
   });
 
-  // Graveyard commander → fill + reanimation
-  if (themes.has('graveyard') || /graveyard|return.*graveyard|play.*from.*graveyard|cast.*from.*graveyard/i.test(oracle)) {
-    archetypes.push(mk('Graveyard Fill', {
-      requires: ['graveyard', 'mill', 'discard', 'surveil', 'dredge', 'descend', 'delirium', 'connive', 'loot'],
-      typePatterns: [],
-      roleFlags: ['recursion'],
-      themes_supported: ['graveyard'],
-      role_in_deck: 'engine',
-    }));
-    archetypes.push(mk('Reanimation Engine', {
-      requires: ['return.*graveyard.*battlefield', 'reanimate', 'unearth', 'persist', 'undying', 'play.*from.*graveyard', 'cast.*from.*graveyard', 'return.*creature card'],
-      typePatterns: [],
-      roleFlags: ['recursion'],
-      themes_supported: ['graveyard'],
-      role_in_deck: 'wincon',
-      idealCards: 6,
-    }));
+  // Graveyard → fill (ACTIVELY puts cards into graveyard)
+  if (themes.has('graveyard') || /graveyard|return.*graveyard/i.test(oracle)) {
+    archetypes.push(mk('Graveyard Fill', (entry) => {
+      const oracle = getOracleText(entry.scryfallData).toLowerCase();
+      return /\b(?:mill|discard|dredge|surveil|connive|loot|descend|delirium)\b|put.{0,30}(top|cards?).{0,30}(into|in).{0,15}(graveyard|your graveyard)/i.test(oracle);
+    }, { themes_supported: ['graveyard'], role_in_deck: 'engine' }));
+    archetypes.push(mk('Reanimation Engine', (entry) => {
+      const oracle = getOracleText(entry.scryfallData).toLowerCase();
+      return /return.{0,40}(from.{0,15}graveyard).{0,30}(battlefield|your hand|play)/i.test(oracle);
+    }, { themes_supported: ['graveyard'], role_in_deck: 'wincon', idealCards: 6 }));
   }
 
-  // Tribal → density + payoffs
+  // Tribal → density + payoffs (MUST reference the specific tribe)
   if (themes.has('tribal') && cmdAnalysis.subtypes.length > 0) {
     const sub = cmdAnalysis.subtypes[0];
     const subLower = sub.toLowerCase();
-    archetypes.push(mk(`${sub} Tribal Density`, {
-      requires: [],
-      typePatterns: [subLower],
-      roleFlags: ['synergy'],
-      themes_supported: ['tribal'],
-      role_in_deck: 'synergy',
-      idealCards: 14,
-    }));
-    archetypes.push(mk(`${sub} Tribal Payoffs`, {
-      requires: [`${subLower} get`, `${subLower} gets`, `${subLower} you control`, `choose a ${subLower}`, `for each ${subLower}`, `${subLower} enters`],
-      typePatterns: [],
-      roleFlags: ['synergy', 'finisher'],
-      themes_supported: ['tribal'],
-      role_in_deck: 'wincon',
-      idealCards: 6,
-    }));
+    archetypes.push(mk(`${sub} Tribal Density`, (entry) => {
+      const typeLine = getTypeLine(entry.scryfallData).toLowerCase();
+      return typeLine.includes(subLower);
+    }, { themes_supported: ['tribal'], role_in_deck: 'synergy', idealCards: 14 }));
+    archetypes.push(mk(`${sub} Tribal Payoffs`, (entry) => {
+      const oracle = getOracleText(entry.scryfallData).toLowerCase();
+      const typeLine = getTypeLine(entry.scryfallData).toLowerCase();
+      // Must name the tribe specifically, not generic "creatures you control"
+      if (typeLine.includes(subLower)) return true; // e.g., tribal lord creatures
+      if (new RegExp(`${subLower}(s)?\\s+(you|spell|creature|permanent)`, 'i').test(oracle)) return true;
+      if (new RegExp(`(create|put|return).{0,30}\\b${subLower}\\b`, 'i').test(oracle)) return true;
+      if (new RegExp(`(choose|target) \\w* ?${subLower}`, 'i').test(oracle)) return true;
+      if (new RegExp(`for each ${subLower}`, 'i').test(oracle)) return true;
+      return false;
+    }, { themes_supported: ['tribal'], role_in_deck: 'wincon', idealCards: 6 }));
   }
 
-  // Sacrifice → sac outlets + death triggers
+  // Sacrifice → sac outlets (activated/triggered sac ability) + death triggers
   if (themes.has('sacrifice') || /sacrifice|dies|whenever.*creature.*dies/i.test(oracle)) {
-    archetypes.push(mk('Sacrifice Outlets', {
-      requires: ['sacrifice a creature', 'sacrifice another', 'sacrifice.*:'],
-      typePatterns: [],
-      roleFlags: ['synergy'],
-      themes_supported: ['sacrifice'],
-      role_in_deck: 'engine',
-      idealCards: 5,
-    }));
+    archetypes.push(mk('Sacrifice Outlets', (entry) => {
+      const oracle = getOracleText(entry.scryfallData).toLowerCase();
+      return /sacrifice (a|another|target|an?) .{0,25}(creature|permanent):/i.test(oracle)
+        || /(whenever|at the beginning).{0,40}you may sacrifice/i.test(oracle);
+    }, { themes_supported: ['sacrifice'], role_in_deck: 'engine', idealCards: 5 }));
     if (cmdAnalysis.wants.includes('dies') || /dies|whenever.*creature.*dies/i.test(oracle)) {
-      archetypes.push(mk('Death Triggers', {
-        requires: ['whenever.*dies', 'whenever.*creature.*dies', 'blood artist', 'aristocrat', 'whenever.*sacrifice'],
-        typePatterns: [],
-        roleFlags: ['synergy', 'finisher'],
-        themes_supported: ['sacrifice'],
-        role_in_deck: 'wincon',
-        idealCards: 5,
-      }));
+      archetypes.push(mk('Death Triggers', (entry) => {
+        const oracle = getOracleText(entry.scryfallData).toLowerCase();
+        return /when(?:ever)?.{0,25}(dies|is put into.{0,10}graveyard from)/i.test(oracle);
+      }, { themes_supported: ['sacrifice'], role_in_deck: 'wincon', idealCards: 5 }));
     }
   }
 
-  // Tokens
+  // Tokens → token creation + go-wide payoffs
   if (themes.has('tokens') || /create.*token|populate/i.test(oracle)) {
-    archetypes.push(mk('Token Engine', {
-      requires: ['create.*token', 'populate', 'amass', 'offspring'],
-      typePatterns: [],
-      roleFlags: ['tokens'],
-      themes_supported: ['tokens'],
-      role_in_deck: 'engine',
-      idealCards: 7,
-    }));
-    archetypes.push(mk('Go-Wide Payoffs', {
-      requires: ['creatures you control get', 'overrun', 'triumph of the hordes', 'extra combat', 'each creature you control'],
-      typePatterns: [],
-      roleFlags: ['finisher'],
-      themes_supported: ['tokens', 'tribal'],
-      role_in_deck: 'wincon',
-      idealCards: 4,
-    }));
+    archetypes.push(mk('Token Engine', (entry) => {
+      const oracle = getOracleText(entry.scryfallData).toLowerCase();
+      return /create.{0,20}token|populate|amass|offspring/i.test(oracle);
+    }, { themes_supported: ['tokens'], role_in_deck: 'engine', idealCards: 7 }));
+    archetypes.push(mk('Go-Wide Payoffs', (entry) => {
+      const oracle = getOracleText(entry.scryfallData).toLowerCase();
+      return /creatures you control get \+|overrun|triumph of the hordes|extra combat/i.test(oracle);
+    }, { themes_supported: ['tokens', 'tribal'], role_in_deck: 'wincon', idealCards: 4 }));
   }
 
-  // Spellslinger
+  // Spellslinger → spell payoffs (NOT just "is an instant/sorcery")
   if (themes.has('spellslinger') || /whenever you cast.*instant|whenever you cast.*sorcery|magecraft|storm|copy.*spell/i.test(oracle)) {
-    archetypes.push(mk('Spell Density', {
-      requires: ['instant', 'sorcery'],
-      typePatterns: ['instant', 'sorcery'],
-      roleFlags: ['interaction', 'draw'],
-      themes_supported: ['spellslinger'],
-      role_in_deck: 'engine',
-      idealCards: 10,
-    }));
-    archetypes.push(mk('Spell Payoffs', {
-      requires: ['whenever you cast.*instant', 'whenever you cast.*sorcery', 'magecraft', 'storm', 'prowess', 'copy.*spell'],
-      typePatterns: [],
-      roleFlags: ['synergy', 'finisher'],
-      themes_supported: ['spellslinger'],
-      role_in_deck: 'wincon',
-      idealCards: 5,
-    }));
+    archetypes.push(mk('Spell Payoffs', (entry) => {
+      const oracle = getOracleText(entry.scryfallData).toLowerCase();
+      return /whenever you cast|magecraft|prowess|storm|cop(?:y|ies).{0,10}(target )?spell/i.test(oracle);
+    }, { themes_supported: ['spellslinger'], role_in_deck: 'wincon', idealCards: 5 }));
   }
 
-  // Blink
+  // Blink → flicker effects + ETB value
   if (themes.has('blink') || /exile.*return.*battlefield|flicker|blink/i.test(oracle)) {
-    archetypes.push(mk('Blink Engine', {
-      requires: ['exile.*return.*battlefield', 'flicker', 'blink', 'conjurer\'s closet'],
-      typePatterns: [],
-      roleFlags: ['synergy'],
-      themes_supported: ['blink'],
-      role_in_deck: 'engine',
-      idealCards: 6,
-    }));
-    archetypes.push(mk('ETB Value', {
-      requires: ['enters the battlefield', 'when.*enters', 'whenever.*enters'],
-      typePatterns: [],
-      roleFlags: ['synergy', 'value'],
-      themes_supported: ['blink', 'graveyard'],
-      role_in_deck: 'synergy',
-      idealCards: 10,
-    }));
+    archetypes.push(mk('Blink Engine', (entry) => {
+      const oracle = getOracleText(entry.scryfallData).toLowerCase();
+      return /exile.{0,20}(return|then return).{0,30}battlefield|flicker|blink/i.test(oracle);
+    }, { themes_supported: ['blink'], role_in_deck: 'engine', idealCards: 6 }));
+    archetypes.push(mk('ETB Value', (entry) => {
+      const oracle = getOracleText(entry.scryfallData).toLowerCase();
+      if (isLandCard(entry.scryfallData)) return false;
+      return /when(?:ever)?.{0,30}(enters|enters the battlefield)/i.test(oracle);
+    }, { themes_supported: ['blink', 'graveyard'], role_in_deck: 'synergy', idealCards: 10 }));
   }
 
   // Counters
-  if (themes.has('counters') || /\+1\/\+1 counter|proliferate|adapt|evolve|bolster|toxic|infect/i.test(oracle)) {
-    archetypes.push(mk('Counter Engine', {
-      requires: ['+1/+1 counter', 'proliferate', 'adapt', 'evolve', 'bolster', 'support'],
-      typePatterns: [],
-      roleFlags: ['synergy'],
-      themes_supported: ['counters'],
-      role_in_deck: 'engine',
-    }));
+  if (themes.has('counters') || /\+1\/\+1 counter|proliferate|adapt|evolve|bolster/i.test(oracle)) {
+    archetypes.push(mk('Counter Engine', (entry) => {
+      const oracle = getOracleText(entry.scryfallData).toLowerCase();
+      return /\+1\/\+1 counter|proliferate|adapt|evolve|bolster|support/i.test(oracle);
+    }, { themes_supported: ['counters'], role_in_deck: 'engine' }));
   }
 
   // Voltron
   if (themes.has('voltron') || /equipment|aura|attach|equip/i.test(oracle)) {
-    archetypes.push(mk('Commander Enhancement', {
-      requires: ['equipment', 'aura', 'attach', 'equip', 'double strike', 'hexproof', 'ward', 'menace'],
-      typePatterns: ['equipment', 'aura', 'enchantment'],
-      roleFlags: ['protection'],
-      themes_supported: ['voltron'],
-      role_in_deck: 'engine',
-      idealCards: 6,
-    }));
+    archetypes.push(mk('Commander Enhancement', (entry) => {
+      const oracle = getOracleText(entry.scryfallData).toLowerCase();
+      const typeLine = getTypeLine(entry.scryfallData).toLowerCase();
+      if (/equipment\b/i.test(typeLine) || /\baura\b/i.test(typeLine)) return true;
+      return /equip\b|enchant creature|attach/i.test(oracle);
+    }, { themes_supported: ['voltron'], role_in_deck: 'engine', idealCards: 6 }));
   }
 
-  // Damage
+  // Damage → burn to opponents
   if (themes.has('damage') || /deal.*damage|each opponent loses|burn|ping/i.test(oracle)) {
-    archetypes.push(mk('Burn Engine', {
-      requires: ['deal.*damage', 'each opponent loses', 'ping', 'whenever.*damage'],
-      typePatterns: [],
-      roleFlags: ['synergy', 'finisher'],
-      themes_supported: ['damage'],
-      role_in_deck: 'wincon',
-      idealCards: 5,
-    }));
+    archetypes.push(mk('Burn Engine', (entry) => {
+      const oracle = getOracleText(entry.scryfallData).toLowerCase();
+      return /deal.{0,30}damage to (each|target) opponent|each opponent loses|whenever.{0,20}damage/i.test(oracle);
+    }, { themes_supported: ['damage'], role_in_deck: 'wincon', idealCards: 5 }));
   }
 
   // Draw synergies
   if (themes.has('draw') || /draw.*card|whenever you draw|wheel/i.test(oracle)) {
-    archetypes.push(mk('Draw Engine', {
-      requires: ['draw.*card', 'whenever you draw', 'wheel', 'connive', 'loot'],
-      typePatterns: [],
-      roleFlags: ['draw'],
-      themes_supported: ['draw'],
-      role_in_deck: 'engine',
-      idealCards: 6,
-    }));
+    archetypes.push(mk('Draw Engine', (entry) => {
+      const oracle = getOracleText(entry.scryfallData).toLowerCase();
+      return /whenever you draw|draw.{0,20}(additional|extra|that many)/i.test(oracle);
+    }, { themes_supported: ['draw'], role_in_deck: 'engine', idealCards: 6 }));
   }
 
   // Landfall
   if (themes.has('landfall') || /landfall|whenever a land enters/i.test(oracle)) {
-    archetypes.push(mk('Landfall Engine', {
-      requires: ['landfall', 'whenever.*land enters', 'play.*additional.*land'],
-      typePatterns: [],
-      roleFlags: ['synergy', 'value'],
-      themes_supported: ['landfall'],
-      role_in_deck: 'engine',
-      idealCards: 7,
-    }));
+    archetypes.push(mk('Landfall Engine', (entry) => {
+      const oracle = getOracleText(entry.scryfallData).toLowerCase();
+      return /landfall|whenever.{0,10}(a|another) land enters/i.test(oracle);
+    }, { themes_supported: ['landfall'], role_in_deck: 'engine', idealCards: 7 }));
   }
 
   // Artifacts
   if (themes.has('artifacts') || /artifact.*you control|affinity|improvise/i.test(oracle)) {
-    archetypes.push(mk('Artifact Engine', {
-      requires: ['artifact', 'treasure', 'clue', 'food', 'affinity', 'improvise'],
-      typePatterns: ['artifact'],
-      roleFlags: ['synergy'],
-      themes_supported: ['artifacts'],
-      role_in_deck: 'engine',
-    }));
+    archetypes.push(mk('Artifact Engine', (entry) => {
+      const oracle = getOracleText(entry.scryfallData).toLowerCase();
+      const typeLine = getTypeLine(entry.scryfallData).toLowerCase();
+      return /artifact\b/i.test(typeLine)
+        || /affinity.{0,10}artifacts|improvise|artifact.{0,15}(you control|spells?)|treasure|clue|food token/i.test(oracle);
+    }, { themes_supported: ['artifacts'], role_in_deck: 'engine' }));
   }
 
   // Enchantments
   if (themes.has('enchantments') || /enchantment|constellation|enchant/i.test(oracle)) {
-    archetypes.push(mk('Enchantment Engine', {
-      requires: ['enchantment', 'constellation', 'enchant', 'aura'],
-      typePatterns: ['enchantment', 'aura'],
-      roleFlags: ['synergy'],
-      themes_supported: ['enchantments'],
-      role_in_deck: 'engine',
-    }));
+    archetypes.push(mk('Enchantment Engine', (entry) => {
+      const oracle = getOracleText(entry.scryfallData).toLowerCase();
+      const typeLine = getTypeLine(entry.scryfallData).toLowerCase();
+      return /enchantment\b/i.test(typeLine) || /constellation|enchant/i.test(oracle);
+    }, { themes_supported: ['enchantments'], role_in_deck: 'engine' }));
   }
 
   // Commander-specific keyword archetypes
   if (/evoke/i.test(oracle)) {
-    archetypes.push(mk('Evoke Engine', {
-      requires: ['evoke', 'whenever.*evoke'],
-      typePatterns: [],
-      roleFlags: ['synergy'],
-      themes_supported: ['graveyard', 'tribal'],
-      role_in_deck: 'engine',
-      idealCards: 5,
-    }));
-  }
-  if (cmdAnalysis.wants.includes('etb') || /enters the battlefield|when.*enters|whenever.*enters/i.test(oracle)) {
-    archetypes.push(mk('ETB Value', {
-      requires: ['enters the battlefield', 'when.*enters', 'whenever.*enters'],
-      typePatterns: [],
-      roleFlags: ['synergy'],
-      themes_supported: ['blink', 'graveyard', 'tribal'],
-      role_in_deck: 'synergy',
-      idealCards: 10,
-    }));
+    archetypes.push(mk('Evoke Engine', (entry) => {
+      const oracle = getOracleText(entry.scryfallData).toLowerCase();
+      const typeLine = getTypeLine(entry.scryfallData).toLowerCase();
+      const subLower = cmdAnalysis.subtypes[0]?.toLowerCase();
+      if (!subLower) return /evoke/i.test(oracle);
+      return typeLine.includes(subLower) && /evoke/i.test(oracle);
+    }, { themes_supported: ['graveyard', 'tribal'], role_in_deck: 'engine', idealCards: 5 }));
   }
   if (cmdAnalysis.wants.includes('attack') || /attacks|combat damage/i.test(oracle)) {
-    archetypes.push(mk('Combat Finishers', {
-      requires: ['extra combat', 'creatures you control get', 'overrun', 'triumph of the hordes', 'whenever.*attacks'],
-      typePatterns: [],
-      roleFlags: ['finisher'],
-      themes_supported: ['damage', 'tribal'],
-      role_in_deck: 'wincon',
-      idealCards: 4,
-    }));
+    archetypes.push(mk('Combat Finishers', (entry) => {
+      const oracle = getOracleText(entry.scryfallData).toLowerCase();
+      return /extra combat|creatures you control get \+|overrun|triumph of the hordes/i.test(oracle);
+    }, { themes_supported: ['damage', 'tribal'], role_in_deck: 'wincon', idealCards: 4 }));
   }
 
-  // Always add a generic recursion/value engine if none exist yet
-  if (archetypes.length < 6) {
-    archetypes.push(mk('Recursion Engine', {
-      requires: ['return.*graveyard', 'reanimate', 'unearth', 'flashback', 'disturb', 'escape', 'recover', 'buyback'],
-      typePatterns: [],
-      roleFlags: ['recursion'],
-      themes_supported: ['graveyard', 'sacrifice', 'spellslinger'],
-      role_in_deck: 'engine',
-      idealCards: 5,
-    }));
-    archetypes.push(mk('Value Engine', {
-      requires: ['draw a card', 'scry', 'surveil', 'cascade', 'discover', 'investigate', 'venture', 'connive', 'learn', 'impulse'],
-      typePatterns: [],
-      roleFlags: ['value', 'draw'],
-      themes_supported: ['draw'],
-      role_in_deck: 'synergy',
-      idealCards: 6,
-    }));
-  }
+  // Recursion Engine: anything that returns cards from graveyard
+  archetypes.push(mk('Recursion Engine', (entry) => {
+    const oracle = getOracleText(entry.scryfallData).toLowerCase();
+    return /return.{0,30}(from.{0,10}graveyard|target.{0,15}(creature|permanent).{0,10}from.{0,10}graveyard)/i.test(oracle)
+      || /reanimate|unearth|flashback|disturb|escape|recover|buyback|delve|embalm/i.test(oracle);
+  }, { themes_supported: ['graveyard', 'sacrifice', 'spellslinger'], role_in_deck: 'engine', idealCards: 6 }));
+
+  // Value Engine: incidental card advantage, NOT just "has draw a card in text"
+  archetypes.push(mk('Value Engine', (entry) => {
+    const oracle = getOracleText(entry.scryfallData).toLowerCase();
+    return /scry \d|surveil \d|cascade|discover|investigate|venture|connive|learn/i.test(oracle);
+  }, { themes_supported: ['draw'], role_in_deck: 'synergy', idealCards: 6 }));
 
   // Deduplicate by name
   const seen = new Set<string>();
@@ -342,38 +275,10 @@ function scoreCluster(
   valid: CollectionEntry[],
   getRoles: (entry: CollectionEntry) => import('./types').CardRoles,
 ): ClusterCandidate | null {
-  const matches: CollectionEntry[] = [];
-
-  for (const entry of valid) {
-    const card = entry.scryfallData;
-    const oracle = getOracleText(card).toLowerCase();
-    const typeLine = getTypeLine(card).toLowerCase();
-    if (isLandCard(card)) continue;
-
-    let match = false;
-
-    // Check oracle-text patterns
-    for (const pat of archetype.requires) {
-      if (oracle.includes(pat)) { match = true; break; }
-    }
-
-    // Check type-line patterns
-    if (!match) {
-      for (const tp of archetype.typePatterns) {
-        if (typeLine.includes(tp.toLowerCase())) { match = true; break; }
-      }
-    }
-
-    // Check role flags
-    if (!match) {
-      const roles = getRoles(entry);
-      for (const flag of archetype.roleFlags) {
-        if (flag in roles && (roles as Record<string, unknown>)[flag]) { match = true; break; }
-      }
-    }
-
-    if (match) matches.push(entry);
-  }
+  const matches = valid.filter((entry) => {
+    if (isLandCard(entry.scryfallData)) return false;
+    return archetype.matches(entry, getRoles);
+  });
 
   if (matches.length < archetype.minCards) return null;
 
@@ -987,40 +892,39 @@ export function buildOptimalDeck(
     }
   }
 
-  // Phase 4: Fill each cluster with its best cards
+  // Phase 4: Fill each cluster with its best cards, track results
+  const clusterResults: ClusterResult[] = [];
   const clusterCardIds = new Map<string, ClusterCandidate[]>();
   for (const cluster of selectedClusters) {
     const alloc = clusterAlloc.get(cluster) || 0;
-    if (alloc <= 0) continue;
+    if (alloc <= 0) {
+      clusterResults.push({ archetype: cluster.archetype, added: [], target: alloc, matched: cluster.cards.length });
+      continue;
+    }
     const ranked = [...cluster.cards].sort((a, b) => b.scores.composite - a.scores.composite);
-    let added = 0;
+    const addedEntries: CollectionEntry[] = [];
     for (const entry of ranked) {
-      if (added >= alloc) break;
+      if (addedEntries.length >= alloc) break;
       const card = entry.scryfallData;
       const key = getDeckCardKey(card);
 
-      // Avoid overlap with already-added cluster cards unless overlapping is beneficial
       if (selectedKeys.has(key) || cardIds.includes(card.id)) {
-        if (isLandCard(card)) continue;
-        if (added < alloc) {
-          // Still allow if this is an overlapping card (serves 2+ clusters)
-          let inOtherClusters = 0;
-          for (const sc of selectedClusters) {
-            if (sc === cluster) continue;
-            if (sc.cards.some((c) => c.scryfallData.id === card.id)) inOtherClusters++;
-          }
-          if (inOtherClusters === 0) continue; // Pure duplicate, skip
-          // Otherwise it's overlapping — still addable
+        let inOtherClusters = 0;
+        for (const sc of selectedClusters) {
+          if (sc === cluster) continue;
+          if (sc.cards.some((c) => c.scryfallData.id === card.id)) inOtherClusters++;
         }
+        if (inOtherClusters === 0) continue;
       }
 
       if (addEntry(entry, cluster.archetype.name, `${cluster.archetype.role_in_deck} for "${cluster.archetype.name}" cluster`)) {
-        added++;
-        const clusters = clusterCardIds.get(card.id) || [];
-        clusters.push(cluster);
-        clusterCardIds.set(card.id, clusters);
+        addedEntries.push(entry);
+        const ccs = clusterCardIds.get(card.id) || [];
+        ccs.push(cluster);
+        clusterCardIds.set(card.id, ccs);
       }
     }
+    clusterResults.push({ archetype: cluster.archetype, added: addedEntries, target: alloc, matched: cluster.cards.length });
   }
 
   // Phase 5: Compute cluster overlap score
@@ -1090,7 +994,14 @@ export function buildOptimalDeck(
   }
 
   // Track selected clusters for game plan
-  const finalClusters = selectedClusters;
+  const finalResults = clusterResults;
+
+  // Log per-cluster fill status
+  for (const r of finalResults) {
+    if (r.added.length < r.target) {
+      console.log(`[Cluster] "${r.archetype.name}" underfilled: ${r.added.length}/${r.target} (${r.matched} qualifying in collection)`);
+    }
+  }
 
   // === PHASE 8: Compute pip-weight from actual selected nonland cards ===
   const pipWeight = computePipWeight(entriesInDeck);
@@ -1189,7 +1100,7 @@ export function buildOptimalDeck(
   return {
     cardIds: repaired.cardIds,
     roles: repaired.roles,
-    gamePlan: describeGamePlan(cmdAnalysis, finalClusters),
+    gamePlan: describeGamePlan(cmdAnalysis, finalResults),
   };
 }
 

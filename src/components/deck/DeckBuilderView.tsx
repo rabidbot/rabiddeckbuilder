@@ -416,16 +416,6 @@ export default function DeckBuilderView() {
           <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/8 to-info/3 p-3 col-span-2 md:col-span-1 hover-lift">
             <div className="text-[9px] uppercase tracking-[0.12em] text-text-muted mb-1">Game Plan</div>
             <div className="text-sm font-bold text-text">{gamePlan || 'No plan'}</div>
-            <div className="text-[10px] text-text-secondary mt-0.5">
-              {cmdAnalysis?.posture === 'control' ? 'Controlling' : cmdAnalysis?.posture === 'aggro' ? 'Aggressive' : 'Midrange'}
-            </div>
-            <div className="flex flex-wrap gap-1 mt-2">
-              {cmdAnalysis?.themes.map((t) => (
-                <span key={t} className="px-1.5 py-0.5 rounded-full text-[9px] border border-primary/12 bg-white/[0.03] text-text-secondary">
-                  {t}
-                </span>
-              ))}
-            </div>
           </div>
 
           {statRows.slice(0, 4).map((row) => (
