@@ -21,7 +21,11 @@ export default function ImportView() {
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState('');
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [fetchCount, setFetchCount] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const [eta, setEta] = useState('');
   const abortRef = useRef<AbortController | null>(null);
+  const startTime = useRef(0);
 
   const handleAbort = useCallback(() => {
     abortRef.current?.abort();
@@ -37,6 +41,9 @@ export default function ImportView() {
     setWarnings([]);
     setStatus('Reading CSV...');
     setProgress(0);
+    setFetchCount(0);
+    setEta('');
+    startTime.current = Date.now();
 
     try {
       const text = await file.text();
@@ -46,6 +53,19 @@ export default function ImportView() {
         setWarnings(['No valid rows found in CSV']);
         setImporting(false);
         addToast('No valid rows found in CSV', 'error');
+        return;
+      }
+
+      // Validate ManaBox CSV format
+      function hasRecognizableColumns(firstRow: typeof rows[0]): boolean {
+        const keys = Object.keys(firstRow).map(k => k.toLowerCase());
+        const required = ['name', 'set code', 'scryfall id', 'collector number'];
+        return required.filter(r => keys.some(k => k.includes(r))).length >= 3;
+      }
+      if (rows.length < 3 || !hasRecognizableColumns(rows[0])) {
+        setWarnings(["We couldn't read this file as a ManaBox CSV. Make sure you're exporting from ManaBox (Settings → Export). Other formats coming soon."]);
+        setImporting(false);
+        addToast("Couldn't read the CSV — make sure it's a ManaBox export", 'error');
         return;
       }
 
@@ -60,8 +80,23 @@ export default function ImportView() {
         if (controller.signal.aborted) break;
 
         const row = rows[i];
-        setStatus(`Fetching: ${row.name}`);
-        setProgress(Math.round(((i + 1) / total) * 100));
+        const current = i + 1;
+        setFetchCount(current);
+
+        // ETA after 50 cards
+        if (current === 50) {
+          const elapsed = (Date.now() - startTime.current) / 1000;
+          const rate = current / elapsed;
+          const remaining = Math.round((total - current) / rate);
+          if (remaining > 0) {
+            const mins = Math.floor(remaining / 60);
+            const secs = remaining % 60;
+            setEta(mins > 0 ? `~${mins}m ${secs}s remaining` : `~${secs}s remaining`);
+          }
+        }
+
+        setStatus(`Fetching card ${current} of ${total}${eta ? ` (${eta})` : ''}`);
+        setProgress(Math.round((current / total) * 100));
 
         const scryfallId = row.scryfallId || '';
 
@@ -229,9 +264,15 @@ export default function ImportView() {
       </div>
 
       {warnings.length > 0 && (
-        <div className="mt-6 rounded-xl border border-accent/20 bg-accent/5 p-6">
-          <h3 className="text-sm font-semibold text-accent mb-3">
-            Warnings ({warnings.length})
+        <div className={`mt-6 rounded-xl border p-6 ${
+          warnings[0].startsWith("We couldn't read")
+            ? 'border-danger/20 bg-danger/5'
+            : 'border-accent/20 bg-accent/5'
+        }`}>
+          <h3 className={`text-sm font-semibold mb-3 ${
+            warnings[0].startsWith("We couldn't read") ? 'text-danger' : 'text-accent'
+          }`}>
+            {warnings[0].startsWith("We couldn't read") ? 'Import Error' : `Warnings (${warnings.length})`}
           </h3>
           <div className="flex flex-col gap-1.5 max-h-60 overflow-y-auto">
             {warnings.map((w, i) => (

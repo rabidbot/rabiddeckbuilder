@@ -1,7 +1,8 @@
 import { NavLink } from 'react-router-dom';
-import { Home, Upload, Crown, Wand2, BarChart3, Swords } from 'lucide-react';
+import { Home, Upload, Crown, Wand2, BarChart3, Swords, HelpCircle } from 'lucide-react';
 import { useCollectionStore } from '../../stores/collectionStore';
 import { useDeckStore } from '../../stores/deckStore';
+import { useUIStore } from '../../stores/uiStore';
 
 const navItems = [
   { to: '/', icon: Home, label: 'Home' },
@@ -16,6 +17,7 @@ export default function Header() {
   const collectionCount = useCollectionStore((s) => s.collection.length);
   const commander = useCollectionStore((s) => s.commander);
   const deckCount = useDeckStore((s) => s.cardIds.length);
+  const { setShowHelp } = useUIStore();
 
   return (
     <header className="sticky top-0 z-50 border-b border-primary/5 bg-card/80 backdrop-blur-md shadow-[0_1px_0_rgba(255,170,0,0.04)]">
@@ -65,6 +67,13 @@ export default function Header() {
               <span className="text-text-muted">Deck:</span>
               <span className="font-semibold text-text">{deckCount}/99</span>
             </span>
+            <button
+              onClick={() => setShowHelp(true)}
+              title="Help"
+              className="inline-flex items-center justify-center w-8 h-8 rounded-full text-text-muted hover:text-text hover:bg-hover transition-colors"
+            >
+              <HelpCircle size={17} />
+            </button>
           </div>
         </div>
       </div>

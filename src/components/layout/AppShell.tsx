@@ -1,10 +1,14 @@
 import { Outlet } from 'react-router-dom';
 import { X } from 'lucide-react';
 import Header from './Header';
+import OnboardingModal from './OnboardingModal';
 import { useToastStore } from '../../stores/toastStore';
+import { useUIStore } from '../../stores/uiStore';
 
 export default function AppShell() {
   const { toasts, removeToast } = useToastStore();
+  const { onboardingComplete, showHelp, setShowHelp } = useUIStore();
+  const showOnboarding = !onboardingComplete || showHelp;
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -12,6 +16,10 @@ export default function AppShell() {
       <main className="flex-1 p-4 md:p-6 max-w-[1660px] mx-auto w-full overflow-hidden animate-[fade-in-up_0.35s_ease-out]">
         <Outlet />
       </main>
+
+      {showOnboarding && (
+        <OnboardingModal onDismiss={() => setShowHelp(false)} />
+      )}
 
       <div className="fixed bottom-6 right-6 z-[999] flex flex-col gap-2 pointer-events-none">
         {toasts.map((toast) => (

@@ -135,7 +135,15 @@ function describeGamePlan(cmdAnalysis: CommanderAnalysis, results?: ClusterResul
     const skipped = diagnostics.filter(d =>
       d.status === 'skipped-color' || d.status === 'skipped-no-signal' || d.status === 'skipped-no-cards');
     if (skipped.length > 0) {
-      const skipReasons = skipped.map(d => `${d.display_name}(${d.reason})`).join(', ');
+      const friendlyReason = (reason: string): string => {
+        if (/^needs /.test(reason)) return "not in commander's colors";
+        if (reason === 'no commander signal') return "doesn't match commander's strategy";
+        if (reason === '0 qualifying cards') return "no qualifying cards in your collection";
+        if (reason.startsWith('subtype present but not rewarded'))
+          return reason.replace(/subtype present but not rewarded in oracle text \((.+)\)/, 'your commander has the $1 subtype but doesn\'t reward it');
+        return reason;
+      };
+      const skipReasons = skipped.map(d => `${d.display_name}(${friendlyReason(d.reason)})`).join(', ');
       parts.push(`Skipped: ${skipReasons}`);
     }
   }

@@ -1,5 +1,6 @@
 import { useMemo, useState, useCallback, useEffect } from 'react';
-import { Wand2, Trash2, Download, Save, FolderOpen, ClipboardPaste } from 'lucide-react';
+import { NavLink } from 'react-router-dom';
+import { Wand2, Trash2, Download, Save, FolderOpen, ClipboardPaste, Loader2, ChevronDown, ChevronRight, Crown } from 'lucide-react';
 import { useCollectionStore } from '../../stores/collectionStore';
 import { useDeckStore } from '../../stores/deckStore';
 import { useToastStore } from '../../stores/toastStore';
@@ -84,6 +85,7 @@ export default function DeckBuilderView() {
   const [loadModalOpen, setLoadModalOpen] = useState(false);
   const [clearConfirm, setClearConfirm] = useState(false);
   const [deckName, setDeckName] = useState('');
+  const [gamePlanExpanded, setGamePlanExpanded] = useState(false);
   const [savedDecks, setSavedDecks] = useState<Array<{ id: string; name: string; commanderId: string; updatedAt: string }>>([]);
 
   const refreshDecks = useCallback(async () => {
@@ -192,11 +194,18 @@ export default function DeckBuilderView() {
   if (!commander) {
     return (
       <div className="flex flex-col items-center justify-center h-[60vh] text-center">
-        <Wand2 size={64} className="text-text-secondary/30 mb-4" />
+        <Crown size={64} className="text-text-secondary/30 mb-4" />
         <h2 className="text-xl font-semibold text-text mb-2">Select a Commander</h2>
-        <p className="text-text-secondary text-sm max-w-md">
-          Go to the Collection tab and pick a legendary creature from your collection.
+        <p className="text-text-secondary text-sm max-w-md mb-4">
+          Pick a legendary creature from your collection first, then build a deck around it.
         </p>
+        <NavLink
+          to="/collection"
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-br from-accent to-primary-dark text-white font-semibold text-sm hover:brightness-110 transition-all duration-200"
+        >
+          <Crown size={15} />
+          Go to Collection
+        </NavLink>
       </div>
     );
   }
@@ -334,7 +343,20 @@ export default function DeckBuilderView() {
             )}
           </div>
           {gamePlan && (
-            <p className="text-xs text-text-secondary mt-0.5">{gamePlan}</p>
+            <div className="mt-2 max-w-2xl">
+              <button
+                onClick={() => setGamePlanExpanded(!gamePlanExpanded)}
+                className="flex items-center gap-1 text-xs text-text-secondary hover:text-text transition-colors"
+              >
+                {gamePlanExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                Game Plan
+              </button>
+              {gamePlanExpanded && (
+                <div className="mt-1 p-3 rounded-xl border border-border bg-card/50 text-xs text-text-secondary whitespace-pre-wrap max-h-[40vh] overflow-y-auto leading-relaxed">
+                  {gamePlan}
+                </div>
+              )}
+            </div>
           )}
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -344,7 +366,7 @@ export default function DeckBuilderView() {
             title="Ctrl+B"
             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-br from-accent to-primary-dark text-white font-semibold text-sm shadow-[0_8px_20px_rgba(0,0,0,0.22)] hover:brightness-110 hover:scale-[1.03] hover:shadow-[0_0_25px_rgba(180,77,255,0.3)] transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-[0_8px_20px_rgba(0,0,0,0.22)]"
           >
-            <Wand2 size={15} />
+            {isBuilding ? <Loader2 size={15} className="animate-spin" /> : <Wand2 size={15} />}
             {isBuilding ? 'Building...' : 'Build Optimal Deck'}
           </button>
           <div className="flex rounded-xl border border-border-light overflow-hidden">
@@ -414,8 +436,20 @@ export default function DeckBuilderView() {
       {blueprint && profile && (
         <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-5 gap-2">
           <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/8 to-info/3 p-3 col-span-2 md:col-span-1 hover-lift">
-            <div className="text-[9px] uppercase tracking-[0.12em] text-text-muted mb-1">Game Plan</div>
-            <div className="text-sm font-bold text-text">{gamePlan || 'No plan'}</div>
+            <button
+              onClick={() => setGamePlanExpanded(!gamePlanExpanded)}
+              className="w-full flex items-center justify-between text-left"
+            >
+              <div className="text-[9px] uppercase tracking-[0.12em] text-text-muted">Game Plan</div>
+              {gamePlanExpanded ? <ChevronDown size={12} className="text-text-muted" /> : <ChevronRight size={12} className="text-text-muted" />}
+            </button>
+            {gamePlanExpanded ? (
+              <div className="text-xs text-text-secondary mt-2 whitespace-pre-wrap max-h-[40vh] overflow-y-auto leading-relaxed border-t border-primary/10 pt-2">
+                {gamePlan || 'No plan'}
+              </div>
+            ) : (
+              <div className="text-xs text-text-muted mt-1">Click to expand</div>
+            )}
           </div>
 
           {statRows.slice(0, 4).map((row) => (
