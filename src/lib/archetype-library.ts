@@ -159,7 +159,7 @@ export const ARCHETYPE_LIBRARY: ArchetypeEntry[] = [
     required_colors: [],
     commander_signals: [],
     card_predicate: /search your library for (?:a|up to|any|an?) .{0,60}(?:card|creature|artifact|enchantment|instant|sorcery|land|planeswalker)/i,
-    exclusions: /\bland\b.{0,80}(?:enters.{0,30}tapped|put onto the battlefield tapped)/i,
+    exclusions: /\bland\b.{0,80}(?:enters.{0,30}tapped|put.{0,10}onto the battlefield tapped)/i,
     ideal_count: 4,
     always_proposed: true,
     example_cards: ['Demonic Tutor', 'Vampiric Tutor', 'Worldly Tutor', 'Enlightened Tutor'],
