@@ -49,7 +49,13 @@ export const ARCHETYPE_LIBRARY: ArchetypeEntry[] = [
     category: 'wincon',
     required_colors: [],
     commander_signals: [
-      /create.{0,30}(?:token|creatures)|tokens you control|each creature you control|whenever a creature you control/i,
+      /\bcreate .{0,40}token/i,
+      /\beach (other )?creature you control\b/i,
+      /\b(\w+) creatures you control get\b/i,
+      /\btokens? you control\b/i,
+      /\bwhenever a creature you control (enters|attacks|dies)/i,
+      /\bX is the number of (creatures|\w+s) you control\b/i,
+      /\bcreatures? you control with\b/i,
     ],
     card_predicate: /creatures you control get \+|anthem|each (?:other )?creature you control|double the (?:number of )?tokens|populate|convoke|overrun|extra combat|triumph of the hordes/i,
     exclusions: null,
@@ -104,7 +110,12 @@ export const ARCHETYPE_LIBRARY: ArchetypeEntry[] = [
     display_name: 'Life Drain Win',
     category: 'wincon',
     required_colors: [B],
-    commander_signals: [/loses? life|drain|each opponent loses/i],
+    commander_signals: [
+      /loses? life|drain|each opponent loses/i,
+      /\blifelink\b/i,
+      /\bgain .{0,20} life\b/i,
+      /\bwhenever .{0,30}(deals|gain).{0,30}(damage|life)/i,
+    ],
     card_predicate: /each opponent loses \d+ life|deals \d+ damage to each opponent|whenever.{0,40}(?:creature|token).{0,40}(?:dies|enters|leaves).{0,40}(?:opponent|player).{0,20}loses?\s+\d+\s+life/i,
     exclusions: null,
     ideal_count: 6,
@@ -383,7 +394,10 @@ export const ARCHETYPE_LIBRARY: ArchetypeEntry[] = [
     display_name: 'Combat Triggers',
     category: 'synergy',
     required_colors: [],
-    commander_signals: [/whenever .{0,20}attacks?|attacks alone|deals combat damage|swing/i],
+    commander_signals: [
+      /\bwhen(ever)? .{0,40}\b(attacks?|deals combat damage|deals damage to a player)\b/i,
+      /\battacks alone\b/i,
+    ],
     card_predicate: /whenever .{0,30}attacks?|whenever .{0,30}deals combat damage/i,
     exclusions: null,
     ideal_count: 6,
@@ -396,7 +410,10 @@ export const ARCHETYPE_LIBRARY: ArchetypeEntry[] = [
     display_name: 'ETB/Dies Triggers',
     category: 'synergy',
     required_colors: [],
-    commander_signals: [/when(?:ever)?.{0,30}(?:enters the battlefield|dies|leaves the battlefield)/i],
+    commander_signals: [
+      /\bwhen(ever)? .{0,40}\b(enters|dies|leaves the battlefield|is put into a graveyard)\b/i,
+      /\bwhen(ever)? a (\w+ )?(creature|permanent|token) (you control )?enters\b/i,
+    ],
     card_predicate: /when(?:ever)?.{0,40}(?:enters the battlefield|enters|dies|is put into a graveyard from the battlefield)/i,
     exclusions: null,
     ideal_count: 6,
@@ -499,6 +516,28 @@ export const ARCHETYPE_LIBRARY: ArchetypeEntry[] = [
   },
 ];
 
+export const SEED_GAPS: Record<string, string[]> = {
+  REANIMATION_CREATURE_ENGINE: [
+    'Animate Dead', 'Reanimate', 'Living Death', 'Victimize', 'Persist',
+    'Sevinne\'s Reclamation', 'Unburial Rites',
+  ],
+  'TRIBAL_PAYOFF:Elemental': [
+    'Risen Reef', 'Omnath Locus of the Roil', 'Elemental Bond',
+    'Smokebraider', 'Incandescent Soulstoke',
+  ],
+  'TRIBAL_PAYOFF:Snake': [
+    'Lorescale Coatl', 'Ohran Frostfang', 'Hapatra Vizier of Poisons',
+  ],
+  GRAVEYARD_FILL: [
+    'Stitcher\'s Supplier', 'Hedron Crab', 'Mesmeric Orb', 'Faithless Looting',
+    'Liliana of the Veil', 'Otrimi the Ever-Playful',
+  ],
+  COMBAT_FINISHERS_GO_WIDE: [
+    'Craterhoof Behemoth', 'Overrun', 'Triumph of the Hordes',
+    'Parallel Lives', 'Doubling Season',
+  ],
+};
+
 export function runSanityCheck(library: ArchetypeEntry[], collection: CollectionEntry[]): string[] {
   const bugs: string[] = [];
   for (const arch of library) {
@@ -529,5 +568,66 @@ export function runSanityCheck(library: ArchetypeEntry[], collection: Collection
       }
     }
   }
+  return bugs;
+}
+
+interface TribalTest {
+  name: string;
+  subtype: string;
+  oracle: string;
+  shouldFire: boolean;
+}
+
+let tribalSanityRan = false;
+
+export function verifyTribalRejects(): string[] {
+  if (tribalSanityRan) return [];
+  tribalSanityRan = true;
+
+  const tests: TribalTest[] = [
+    {
+      name: 'Ikra Shidiqi, the Usurper',
+      subtype: 'Snake',
+      oracle: 'Menace\nWhenever a creature you control deals combat damage to a player, you gain that much life.\n{T}: Add {C}{C}.',
+      shouldFire: false,
+    },
+    {
+      name: 'Atraxa, Praetors\' Voice',
+      subtype: 'Phyrexian',
+      oracle: 'Flying, vigilance, deathtouch, lifelink\nAt the beginning of your end step, proliferate.',
+      shouldFire: false,
+    },
+    {
+      name: 'Niv-Mizzet, Parun',
+      subtype: 'Dragon',
+      oracle: 'This spell can\'t be countered.\nFlying\nWhenever you draw a card, Niv-Mizzet, Parun deals 1 damage to any target.\nWhenever a player casts an instant or sorcery spell, you draw a card.',
+      shouldFire: false,
+    },
+    {
+      name: 'Kyler, Sigardian Emissary',
+      subtype: 'Human',
+      oracle: 'Whenever another Human enters the battlefield under your control, put a +1/+1 counter on Kyler, Sigardian Emissary.\nOther Human creatures you control get +X/+X, where X is the number of counters on Kyler.',
+      shouldFire: true,
+    },
+    {
+      name: 'Edgar Markov',
+      subtype: 'Vampire',
+      oracle: 'Eminence — Whenever you cast another Vampire spell, if Edgar Markov is in the command zone or on the battlefield, create a 1/1 black Vampire creature token.\nFirst strike, haste\nWhen Edgar Markov attacks, put a +1/+1 counter on each Vampire you control.',
+      shouldFire: true,
+    },
+  ];
+
+  const bugs: string[] = [];
+  for (const t of tests) {
+    const tribeLower = t.subtype.toLowerCase();
+    const tribeInOracle = new RegExp(`\\b${tribeLower}s?\\b`, 'i').test(t.oracle.toLowerCase());
+    if (tribeInOracle !== t.shouldFire) {
+      bugs.push(
+        `[TribalSanity] "${t.name}": subtype="${t.subtype}" shouldFire=${t.shouldFire} but oracle match=${tribeInOracle}`,
+      );
+    }
+  }
+
+  for (const bug of bugs) console.error(bug);
   return bugs;
 }

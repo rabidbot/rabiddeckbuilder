@@ -4,7 +4,7 @@ import { detectCardRoles, cardMatchesTheme } from './card-roles';
 import { getDeckBlueprint } from './deck-blueprint';
 import type { PowerLevel } from './deck-blueprint';
 import { analyzeCommander } from './commander-analyzer';
-import { ARCHETYPE_LIBRARY, runSanityCheck } from './archetype-library';
+import { ARCHETYPE_LIBRARY, runSanityCheck, verifyTribalRejects, SEED_GAPS } from './archetype-library';
 import type { ArchetypeCategory } from './archetype-library';
 
 interface ClusterArchetype {
@@ -34,13 +34,14 @@ interface ArchetypeDiagnostic {
 }
 
 function describeGamePlan(cmdAnalysis: CommanderAnalysis, results?: ClusterResult[], diagnostics?: ArchetypeDiagnostic[]): string {
+  console.log("CLUSTER-CONTENTS v1");
   if (!results || !results.length) {
     const primary = cmdAnalysis.themes.slice(0, 2).map((t) => t[0].toUpperCase() + t.slice(1));
     return primary.length ? primary.join(' / ') : 'Balanced Goodstuff';
   }
 
-  const nameSample = (entries: CollectionEntry[], count = 2): string =>
-    entries.slice(0, count).map((e) => e.scryfallData.name).join(', ');
+  const allNames = (entries: CollectionEntry[]): string =>
+    entries.map((e) => e.scryfallData.name).join(', ');
 
   const wincon = results.filter((r) => r.archetype.category === 'wincon');
   const engines = results.filter((r) => r.archetype.category === 'engine');
@@ -53,13 +54,14 @@ function describeGamePlan(cmdAnalysis: CommanderAnalysis, results?: ClusterResul
     if (r.added.length === 0) {
       return `${r.archetype.display_name}: empty (0/${r.matched} qualifying)`;
     }
+    const cardList = allNames(r.added);
     if (r.added.length < r.target) {
       const advice = r.archetype.category === 'wincon'
         ? 'Acquiring more options would strengthen this win condition.'
         : 'Acquiring more options would deepen this cluster.';
-      return `${r.archetype.display_name} (${nameSample(r.added, 2)}): ${r.added.length}/${r.target} (${r.matched} in collection). ${advice}`;
+      return `${r.archetype.display_name}: ${r.added.length}/${r.target} (${r.matched} in collection). ${advice}\n     ${cardList}`;
     }
-    return `${r.archetype.display_name}: ${r.added.length}/${r.target} ✓`;
+    return `${r.archetype.display_name}: ${r.added.length}/${r.target} \u2713\n     ${cardList}`;
   };
 
   if (wincon.length) parts.push(`Win: ${wincon.map(describeCluster).join('; ')}`);
@@ -74,6 +76,26 @@ function describeGamePlan(cmdAnalysis: CommanderAnalysis, results?: ClusterResul
     if (skipped.length > 0) {
       const skipReasons = skipped.map(d => `${d.display_name}(${d.reason})`).join(', ');
       parts.push(`Skipped: ${skipReasons}`);
+    }
+  }
+
+  // BUG 5: Collection gap report for underfilled clusters
+  const underfilled = results.filter(r => r.added.length < r.target);
+  if (underfilled.length > 0) {
+    const gapLines: string[] = [];
+    for (const r of underfilled) {
+      const tribeMatch = r.archetype.display_name.match(/\(([^)]+)\)/);
+      const tribe = tribeMatch ? tribeMatch[1] : null;
+      const seedKey = tribe ? `${r.archetype.key}:${tribe}` : r.archetype.key;
+      const seeds = SEED_GAPS[seedKey] || SEED_GAPS[r.archetype.key];
+      if (seeds && seeds.length > 0) {
+        gapLines.push(
+          `  - ${r.archetype.display_name}: underfilled ${r.added.length}/${r.target}. Cards that would qualify:\n     ${seeds.join(', ')}`,
+        );
+      }
+    }
+    if (gapLines.length > 0) {
+      parts.push(`COLLECTION GAPS:\n${gapLines.join('\n')}`);
     }
   }
 
@@ -110,6 +132,8 @@ function proposeArchetypes(
 
   const sanityBugs = runSanityCheck(ARCHETYPE_LIBRARY, valid);
   for (const bug of sanityBugs) console.warn(bug);
+  const tribalBugs = verifyTribalRejects();
+  for (const bug of tribalBugs) console.error(bug);
 
   interface ScoredCandidate {
     archetype: ClusterArchetype;
@@ -128,7 +152,6 @@ function proposeArchetypes(
     let exclusionFn = buildExclusions(entry);
 
     if (entry.key === 'TRIBAL_DENSITY' || entry.key === 'TRIBAL_PAYOFF') {
-      // Need a tribe from commander subtypes
       if (!cmdAnalysis.subtypes.length) {
         diagnostics.push({
           key: entry.key, display_name: displayName, category: entry.category,
@@ -137,7 +160,23 @@ function proposeArchetypes(
         });
         continue;
       }
-      const tribe = cmdAnalysis.subtypes[0];
+      // Iterate subtypes to find one that is rewarded in the commander's oracle text
+      let tribe: string | null = null;
+      for (const sub of cmdAnalysis.subtypes) {
+        const subLower = sub.toLowerCase();
+        if (new RegExp(`\\b${subLower}s?\\b`, 'i').test(cmdOracle)) {
+          tribe = sub;
+          break;
+        }
+      }
+      if (!tribe) {
+        diagnostics.push({
+          key: entry.key, display_name: displayName, category: entry.category,
+          status: 'skipped-no-signal', qualifying: 0, ideal: entry.ideal_count,
+          reason: `subtype present but not rewarded in oracle text (${cmdAnalysis.subtypes.join(', ')})`,
+        });
+        continue;
+      }
       displayName = entry.display_name.replace('{tribe}', tribe);
 
       // Build tribe-specific predicates
@@ -248,6 +287,47 @@ function proposeArchetypes(
     scored.push({ archetype, score, qualifying: qualifying.length, index: i });
   }
 
+  // BUG 2: Inferred TOKEN_PRODUCTION_ENGINE from TRIBAL_DENSITY
+  const TOKENABLE_TRIBES = ['Human', 'Soldier', 'Goblin', 'Zombie', 'Spirit', 'Saproling', 'Elf', 'Faerie', 'Cat', 'Rat', 'Insect', 'Bird', 'Squirrel', 'Knight', 'Wolf', 'Snake'];
+  const tribalDensityScored = scored.find(s => s.archetype.key === 'TRIBAL_DENSITY');
+  if (tribalDensityScored) {
+    const densityTribe = tribalDensityScored.archetype.display_name.match(/\(([^)]+)\)/)?.[1];
+    if (densityTribe && TOKENABLE_TRIBES.some(t => t.toLowerCase() === densityTribe.toLowerCase())) {
+      const tokenAlready = scored.find(s => s.archetype.key === 'TOKEN_PRODUCTION_ENGINE');
+      if (!tokenAlready) {
+        const tokenEntry = ARCHETYPE_LIBRARY.find(e => e.key === 'TOKEN_PRODUCTION_ENGINE');
+        if (tokenEntry) {
+          const tokenQualifying = valid.filter(e => {
+            if (isLandCard(e.scryfallData)) return false;
+            const oracle = getOracleText(e.scryfallData).toLowerCase();
+            return tokenEntry.card_predicate.test(oracle)
+              && (!tokenEntry.exclusions || !tokenEntry.exclusions.test(oracle));
+          });
+          const tokenDisplayName = `Token Generation (${densityTribe})`;
+          const tokenArchetype: ClusterArchetype = {
+            key: tokenEntry.key,
+            display_name: tokenDisplayName,
+            category: tokenEntry.category,
+            matches: (entry: CollectionEntry) => {
+              const oracle = getOracleText(entry.scryfallData).toLowerCase();
+              return tokenEntry.card_predicate.test(oracle)
+                && (!tokenEntry.exclusions || !tokenEntry.exclusions.test(oracle));
+            },
+            exclusions: tokenEntry.exclusions ? (entry: CollectionEntry) => tokenEntry.exclusions!.test(getOracleText(entry.scryfallData).toLowerCase()) : null,
+            idealCards: tokenEntry.ideal_count,
+          };
+          scored.push({
+            archetype: tokenArchetype,
+            score: tokenQualifying.length * 0.8,
+            qualifying: tokenQualifying.length,
+            index: 999,
+          });
+          console.log(`TOKEN_PRODUCTION_ENGINE: inferred from TRIBAL_DENSITY (${densityTribe})`);
+        }
+      }
+    }
+  }
+
   // Selection logic
   if (!scored.length) return { selected, diagnostics };
 
@@ -306,6 +386,46 @@ function proposeArchetypes(
       qualifying: e.qualifying, ideal: e.archetype.idealCards,
       reason: e.qualifying >= e.archetype.idealCards ? `${e.qualifying}/${e.archetype.idealCards}` : `${e.qualifying}/${e.archetype.idealCards}`,
     });
+  }
+
+  // BUG 4: Wincon fallback
+  const selectedWincons = selected.filter(a => a.category === 'wincon');
+  if (selectedWincons.length === 0) {
+    const goWideEntry = ARCHETYPE_LIBRARY.find(e => e.key === 'COMBAT_FINISHERS_GO_WIDE');
+    const voltronEntry = ARCHETYPE_LIBRARY.find(e => e.key === 'COMMANDER_DAMAGE_VOLTRON');
+    let goWideCount = 0;
+    let voltronCount = 0;
+    if (goWideEntry) {
+      goWideCount = valid.filter(e => !isLandCard(e.scryfallData) && buildPredicate(goWideEntry)(e)
+        && (!goWideEntry.exclusions || !goWideEntry.exclusions.test(getOracleText(e.scryfallData).toLowerCase()))).length;
+    }
+    if (voltronEntry) {
+      voltronCount = valid.filter(e => !isLandCard(e.scryfallData) && buildPredicate(voltronEntry)(e)
+        && (!voltronEntry.exclusions || !voltronEntry.exclusions.test(getOracleText(e.scryfallData).toLowerCase()))).length;
+    }
+    if (goWideCount === 0 && voltronCount === 0) {
+      console.warn('WARNING: no wincon archetype qualifies for this commander/collection');
+    } else {
+      const fallbackEntry = goWideCount >= voltronCount ? goWideEntry! : voltronEntry!;
+      const fallbackCount = goWideCount >= voltronCount ? goWideCount : voltronCount;
+      const archetype: ClusterArchetype = {
+        key: fallbackEntry.key,
+        display_name: fallbackEntry.display_name,
+        category: fallbackEntry.category,
+        matches: buildPredicate(fallbackEntry),
+        exclusions: buildExclusions(fallbackEntry),
+        idealCards: fallbackEntry.ideal_count,
+      };
+      selected.push(archetype);
+      diagnostics.push({
+        key: archetype.key, display_name: archetype.display_name,
+        category: archetype.category,
+        status: fallbackCount < archetype.idealCards ? 'underfilled' : 'selected',
+        qualifying: fallbackCount, ideal: archetype.idealCards,
+        reason: `fallback (${fallbackCount} qualifying)`,
+      });
+      console.log(`WINCON FALLBACK: forced ${archetype.display_name} (${fallbackCount} qualifying)`);
+    }
   }
 
   // Log all diagnostics to console
