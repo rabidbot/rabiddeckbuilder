@@ -1,6 +1,6 @@
 import { useMemo, useState, useCallback, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Wand2, Trash2, Download, Save, FolderOpen, ClipboardPaste, Loader2, ChevronDown, ChevronRight, Crown } from 'lucide-react';
+import { Wand2, Trash2, Download, Save, FolderOpen, ClipboardPaste, Loader2, ChevronDown, ChevronRight, Crown, HelpCircle } from 'lucide-react';
 import { useCollectionStore } from '../../stores/collectionStore';
 import { useDeckStore } from '../../stores/deckStore';
 import { useToastStore } from '../../stores/toastStore';
@@ -78,7 +78,7 @@ function barColor(actual: number, good: number, soft: number) {
 export default function DeckBuilderView() {
   const collection = useCollectionStore((s) => s.collection);
   const commander = useCollectionStore((s) => s.commander);
-  const { cardIds, roles, gamePlan, deckName: activeDeckName, loadedDeckId, isBuilding, powerLevel, virtualEntries, buildDeck, clearDeck, setPowerLevel } = useDeckStore();
+  const { cardIds, roles, gamePlan, gamePlanSummary, deckName: activeDeckName, loadedDeckId, isBuilding, powerLevel, virtualEntries, buildDeck, clearDeck, setPowerLevel } = useDeckStore();
   const addToast = useToastStore((s) => s.addToast);
 
   const [saveModalOpen, setSaveModalOpen] = useState(false);
@@ -344,12 +344,96 @@ export default function DeckBuilderView() {
           </div>
           {gamePlan && (
             <div className="mt-2 max-w-2xl">
+              {gamePlanSummary && (
+                <div className="text-xs text-text-secondary leading-relaxed space-y-1.5 mb-2 p-3 rounded-xl border border-border bg-card/50">
+                  <div className="text-text font-medium">
+                    {gamePlanSummary.primaryArchetype}
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-text-muted">Power level: {gamePlanSummary.powerLevel}</span>
+                    <span className="text-text-muted">•</span>
+                    <span className="text-text-muted">Build quality:</span>
+                    <span className={
+                      gamePlanSummary.buildQuality === 'Tight' ? 'text-success font-medium' :
+                      gamePlanSummary.buildQuality === 'Moderate' ? 'text-primary font-medium' :
+                      'text-accent font-medium'
+                    }>{gamePlanSummary.buildQuality}</span>
+                    <span className="text-text-muted">(avg density {gamePlanSummary.avgDensity})</span>
+                    <span className="relative group cursor-help ml-0.5 inline-flex">
+                      <HelpCircle className="w-3 h-3 opacity-50" />
+                      <span className="absolute hidden group-hover:block bottom-full left-1/2 -translate-x-1/2 mb-2 bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-xs w-64 z-10 shadow-lg pointer-events-none">
+                        Tight = cards reinforce each other across multiple strategies.
+                        Loose = each card does its own thing. Both can be good depending
+                        on the commander.
+                      </span>
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-text-muted">Wincon:</span>{' '}
+                    {gamePlanSummary.wincon.name} —{' '}
+                    <span className={
+                      gamePlanSummary.wincon.status === 'Complete' ? 'text-success' :
+                      gamePlanSummary.wincon.status === 'Thin' ? 'text-primary' :
+                      'text-danger'
+                    }>{gamePlanSummary.wincon.status}</span>
+                  </div>
+                  {gamePlanSummary.engines.length > 0 && (
+                    <div>
+                      <span className="text-text-muted">Engines:</span>{' '}
+                      {gamePlanSummary.engines.map((e, i) => (
+                        <span key={i}>
+                          {i > 0 && ' • '}
+                          {e.name} — <span className={
+                            e.status === 'Complete' ? 'text-success' :
+                            e.status === 'Thin' ? 'text-primary' :
+                            'text-danger'
+                          }>{e.status}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {gamePlanSummary.synergies.length > 0 && (
+                    <div>
+                      <span className="text-text-muted">Synergy:</span>{' '}
+                      {gamePlanSummary.synergies.map((s, i) => (
+                        <span key={i}>
+                          {i > 0 && ' • '}
+                          {s.name}{s.tribe ? ` (${s.tribe})` : ''} —{' '}
+                          <span className={
+                            s.status === 'Complete' ? 'text-success' :
+                            s.status === 'Thin' ? 'text-primary' :
+                            'text-danger'
+                          }>{s.status}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div>
+                    <span className="text-text-muted">Gaps:</span>{' '}
+                    {gamePlanSummary.gaps.length === 0 ? (
+                      <span className="text-success">None — deck is structurally complete.</span>
+                    ) : (
+                      <>
+                        {gamePlanSummary.gaps.map((g, i) => (
+                          <span key={i}>
+                            {i > 0 && ' • '}
+                            {g.cluster}: {g.subRole} missing
+                          </span>
+                        ))}
+                        {gamePlanSummary.gapsOverflow > 0 && (
+                          <span className="text-text-muted"> (+{gamePlanSummary.gapsOverflow} more — see full plan)</span>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
               <button
                 onClick={() => setGamePlanExpanded(!gamePlanExpanded)}
                 className="flex items-center gap-1 text-xs text-text-secondary hover:text-text transition-colors"
               >
                 {gamePlanExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                Game Plan
+                {gamePlanExpanded ? 'Hide full plan' : 'Show full plan'}
               </button>
               {gamePlanExpanded && (
                 <div className="mt-1 p-3 rounded-xl border border-border bg-card/50 text-xs text-text-secondary whitespace-pre-wrap max-h-[40vh] overflow-y-auto leading-relaxed">
@@ -446,6 +530,17 @@ export default function DeckBuilderView() {
             {gamePlanExpanded ? (
               <div className="text-xs text-text-secondary mt-2 whitespace-pre-wrap max-h-[40vh] overflow-y-auto leading-relaxed border-t border-primary/10 pt-2">
                 {gamePlan || 'No plan'}
+              </div>
+            ) : gamePlanSummary ? (
+              <div className="text-xs text-text-secondary mt-1 space-y-0.5">
+                <div className="text-text font-medium">{gamePlanSummary.primaryArchetype}</div>
+                <div>
+                  Build quality: <span className={
+                    gamePlanSummary.buildQuality === 'Tight' ? 'text-success font-medium' :
+                    gamePlanSummary.buildQuality === 'Moderate' ? 'text-primary font-medium' :
+                    'text-accent font-medium'
+                  }>{gamePlanSummary.buildQuality}</span> ({gamePlanSummary.avgDensity})
+                </div>
               </div>
             ) : (
               <div className="text-xs text-text-muted mt-1">Click to expand</div>

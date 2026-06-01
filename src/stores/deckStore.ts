@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { DeckRole, CollectionEntry } from '../lib/types';
 import { buildOptimalDeck, createVirtualBasicLands } from '../lib/deck-engine';
+import type { GamePlanSummary } from '../lib/deck-engine';
 import { analyzeCommander } from '../lib/commander-analyzer';
 import { getDeckCardKey, canRunMultipleCopies } from '../lib/card-utils';
 import { useCollectionStore } from './collectionStore';
@@ -15,6 +16,7 @@ interface DeckState {
   roles: Record<string, DeckRole>;
   categoryOverrides: Record<string, string>;
   gamePlan: string;
+  gamePlanSummary: GamePlanSummary | null;
   deckName: string;
   loadedDeckId: string | null;
   isBuilding: boolean;
@@ -37,6 +39,7 @@ export const useDeckStore = create<DeckState>((set, get) => ({
   roles: {},
   categoryOverrides: {},
   gamePlan: '',
+  gamePlanSummary: null,
   deckName: '',
   loadedDeckId: null,
   isBuilding: false,
@@ -116,7 +119,7 @@ export const useDeckStore = create<DeckState>((set, get) => ({
   },
 
   clearDeck: () =>
-    set({ cardIds: [], selectedKeys: [], selectedNames: [], roles: {}, categoryOverrides: {}, gamePlan: '', deckName: '', loadedDeckId: null, virtualEntries: [] }),
+    set({ cardIds: [], selectedKeys: [], selectedNames: [], roles: {}, categoryOverrides: {}, gamePlan: '', gamePlanSummary: null, deckName: '', loadedDeckId: null, virtualEntries: [] }),
 
   buildDeck: () => {
     const { collection, commander } = useCollectionStore.getState();
@@ -174,6 +177,7 @@ export const useDeckStore = create<DeckState>((set, get) => ({
           selectedNames: newNames,
           roles: result.roles,
           gamePlan: result.gamePlan,
+          gamePlanSummary: result.gamePlanSummary ?? null,
           deckName: '',
           loadedDeckId: null,
           isBuilding: false,

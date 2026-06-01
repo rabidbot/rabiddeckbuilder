@@ -55,6 +55,18 @@ interface DensityEntry {
   richnessRoles: string[];
 }
 
+export interface GamePlanSummary {
+  primaryArchetype: string;
+  powerLevel: string;
+  buildQuality: 'Tight' | 'Moderate' | 'Loose';
+  avgDensity: number;
+  wincon: { name: string; status: 'Complete' | 'Thin' | 'Missing' };
+  engines: Array<{ name: string; status: 'Complete' | 'Thin' | 'Missing' }>;
+  synergies: Array<{ name: string; status: 'Complete' | 'Thin' | 'Missing'; tribe?: string }>;
+  gaps: Array<{ cluster: string; subRole: string }>;
+  gapsOverflow: number;
+}
+
 interface ArchetypeDiagnostic {
   key: string;
   display_name: string;
@@ -186,7 +198,7 @@ function describeGamePlan(cmdAnalysis: CommanderAnalysis, results?: ClusterResul
       const sorted = [...densityEntries].sort((a, b) => b.density - a.density);
       const quartileIdx = Math.max(1, Math.round(sorted.length * 0.25));
       const quartileVal = sorted[Math.min(quartileIdx - 1, sorted.length - 1)].density;
-      const grade = avg >= 7 ? 'TIGHT' : avg >= 4 ? 'MODERATE' : 'LOOSE';
+      const grade = avg >= 7 ? 'Tight' : avg >= 4 ? 'Moderate' : 'Loose';
       parts.push(`Average synergy density: ${avg}. Top quartile: ${quartileVal}+. This is a ${grade} build.`);
     }
   }
@@ -1722,11 +1734,86 @@ export function buildOptimalDeck(
   const repaired = validateAndRepairDeck(
     cardIds, entriesInDeck, roles, selectedKeys, valid, commander.scryfallData,
   );
+
+  const gamePlanSummary = buildGamePlanSummary(finalResults, densityEntries, powerLevel);
+
   return {
     cardIds: repaired.cardIds,
     roles: repaired.roles,
     gamePlan: describeGamePlan(cmdAnalysis, finalResults, diagnostics, densityEntries),
+    gamePlanSummary,
   };
+}
+
+function buildGamePlanSummary(
+  finalResults: ClusterResult[],
+  densityEntries: DensityEntry[],
+  powerLevel: string,
+): GamePlanSummary {
+  const avgDensity: number = Math.round(internalComputeAvgDensity(densityEntries) * 10) / 10;
+  const buildQuality: GamePlanSummary['buildQuality'] =
+    avgDensity >= 7 ? 'Tight' : avgDensity >= 4 ? 'Moderate' : 'Loose';
+
+  const clusterStatus = (r: ClusterResult): 'Complete' | 'Thin' | 'Missing' => {
+    if (!r.subRoleFills || r.subRoleFills.length === 0) return 'Complete';
+    if (r.completeness === 'INCOMPLETE') return 'Missing';
+    if (r.completeness === 'UNDERFILLED') return 'Thin';
+    return 'Complete';
+  };
+
+  const wincons = finalResults.filter(r => r.archetype.category === 'wincon');
+  const engines = finalResults.filter(r => r.archetype.category === 'engine');
+  const synergies = finalResults.filter(r => r.archetype.category === 'synergy');
+
+  const primaryNames: string[] = [];
+  if (wincons.length > 0) primaryNames.push(wincons[0].archetype.display_name);
+  if (engines.length > 0) primaryNames.push(engines[0].archetype.display_name);
+  const primaryArchetype = primaryNames.length > 0 ? primaryNames.join(' + ') : 'Balanced Goodstuff';
+
+  const winconSummary: GamePlanSummary['wincon'] = wincons.length > 0
+    ? { name: wincons[0].archetype.display_name, status: clusterStatus(wincons[0]) }
+    : { name: 'None', status: 'Missing' };
+
+  const engineSummaries = engines.slice(0, 3).map(r => ({
+    name: r.archetype.display_name,
+    status: clusterStatus(r),
+  }));
+
+  const synergySummaries = synergies.slice(0, 2).map(r => {
+    const tribeMatch = r.archetype.display_name.match(/\(([^)]+)\)/);
+    return {
+      name: r.archetype.display_name,
+      status: clusterStatus(r),
+      tribe: tribeMatch ? tribeMatch[1] : undefined,
+    };
+  });
+
+  const allGaps: Array<{ cluster: string; subRole: string }> = [];
+  for (const r of finalResults) {
+    if (!r.subRoleFills || r.completeness !== 'INCOMPLETE') continue;
+    const shortName = r.archetype.display_name.split(' ')[0].replace(/[(),]/g, '');
+    for (const sf of r.subRoleFills) {
+      if (sf.role.optional || sf.status !== 'missing') continue;
+      allGaps.push({ cluster: shortName, subRole: sf.role.name });
+    }
+  }
+
+  return {
+    primaryArchetype,
+    powerLevel: powerLevel === 'competitive' ? 'cEDH' : powerLevel === '75%' ? 'High Power' : 'Casual',
+    buildQuality,
+    avgDensity,
+    wincon: winconSummary,
+    engines: engineSummaries,
+    synergies: synergySummaries,
+    gaps: allGaps.slice(0, 3),
+    gapsOverflow: Math.max(0, allGaps.length - 3),
+  };
+}
+
+function internalComputeAvgDensity(densityEntries: DensityEntry[]): number {
+  if (!densityEntries.length) return 0;
+  return densityEntries.reduce((s, e) => s + e.density, 0) / densityEntries.length;
 }
 
 function validateAndRepairDeck(
