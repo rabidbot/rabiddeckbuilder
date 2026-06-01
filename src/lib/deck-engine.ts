@@ -1456,7 +1456,7 @@ export function buildOptimalDeck(
         subRoleCounts.set(c.key, 0);
       }
       // Greedy fill with sub-role priority + density
-      while (addedEntries.length < alloc) {
+      while (addedEntries.length < alloc && cardIds.length < nonLandTarget) {
         let bestEntry: CollectionEntry | null = null;
         let bestScore = -Infinity;
         for (const entry of qualifying) {
@@ -1536,6 +1536,7 @@ export function buildOptimalDeck(
       (getTierComposite(a) + (densityScores.get(a.scryfallData.id) || 0) + getFreeSpellBonus(a, a.key)),
     );
       for (const entry of ranked) {
+        if (cardIds.length >= nonLandTarget) break;
         if (addedEntries.length >= alloc) break;
         const card = entry.scryfallData;
         const key = getDeckCardKey(card);
