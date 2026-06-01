@@ -1,4 +1,5 @@
 import type { ScryfallCard, Scores } from './types';
+import type { PowerLevel } from './deck-blueprint';
 import { getColorIdentity, getOracleText, getTypeLine } from './card-utils';
 
 function scoreBudget(csvRow: Record<string, string>, card: ScryfallCard): { score: number; price: number; reasons: string[] } {
@@ -23,50 +24,72 @@ function scoreBudget(csvRow: Record<string, string>, card: ScryfallCard): { scor
   return { score, price, reasons };
 }
 
-const KNOWN_STAPLES: Record<string, { power: number; manaEff: number }> = {
-  'sol ring':               { power: 10, manaEff: 10 },
-  'mana crypt':             { power: 10, manaEff: 10 },
-  'mana vault':             { power: 9,  manaEff: 9 },
-  'chrome mox':             { power: 9,  manaEff: 9 },
-  'mox diamond':            { power: 9,  manaEff: 9 },
-  'mox opal':               { power: 8,  manaEff: 8 },
-  'lotus petal':            { power: 8,  manaEff: 9 },
-  'jeweled lotus':          { power: 9,  manaEff: 9 },
-  'demonic tutor':          { power: 9,  manaEff: 9 },
-  'vampiric tutor':         { power: 9,  manaEff: 9 },
-  'mystical tutor':         { power: 8,  manaEff: 8 },
-  'worldly tutor':          { power: 8,  manaEff: 8 },
-  'enlightened tutor':      { power: 8,  manaEff: 8 },
-  'imperial seal':          { power: 8,  manaEff: 8 },
-  'gamble':                 { power: 7,  manaEff: 8 },
-  'rhystic study':          { power: 9,  manaEff: 7 },
-  'mystic remora':          { power: 8,  manaEff: 8 },
-  'smothering tithe':       { power: 9,  manaEff: 7 },
-  'esper sentinel':         { power: 8,  manaEff: 8 },
-  'cyclonic rift':          { power: 9,  manaEff: 7 },
-  'fierce guardianship':    { power: 9,  manaEff: 8 },
-  'deadly rollick':         { power: 9,  manaEff: 8 },
-  'force of will':          { power: 9,  manaEff: 8 },
-  'force of negation':      { power: 9,  manaEff: 8 },
-  'swan song':              { power: 8,  manaEff: 8 },
-  'swords to plowshares':   { power: 8,  manaEff: 9 },
-  'path to exile':          { power: 8,  manaEff: 9 },
-  'assassin\'s trophy':     { power: 8,  manaEff: 8 },
-  'toxic deluge':           { power: 9,  manaEff: 8 },
-  'damnation':              { power: 8,  manaEff: 7 },
-  'teferi\'s protection':   { power: 9,  manaEff: 7 },
-  'deflecting swat':        { power: 9,  manaEff: 8 },
-  'flawless maneuver':      { power: 8,  manaEff: 8 },
-  'necropotence':           { power: 9,  manaEff: 8 },
-  'ad nauseam':             { power: 9,  manaEff: 8 },
-  'underworld breach':      { power: 9,  manaEff: 8 },
-  'thassa\'s oracle':       { power: 9,  manaEff: 9 },
-  'demonic consultation':   { power: 9,  manaEff: 9 },
-  'tainted pact':           { power: 9,  manaEff: 7 },
-  'dockside extortionist':  { power: 9,  manaEff: 8 },
-  'craterhoof behemoth':    { power: 9,  manaEff: 6 },
-  'the one ring':           { power: 9,  manaEff: 7 },
+const KNOWN_STAPLES: Record<string, { power: number; manaEff: number; tier?: 'casual' | 'high-power' | 'cedh' }> = {
+  'sol ring':               { power: 10, manaEff: 10, tier: 'casual' },
+  'mana crypt':             { power: 10, manaEff: 10, tier: 'cedh' },
+  'mana vault':             { power: 9,  manaEff: 9,  tier: 'high-power' },
+  'chrome mox':             { power: 9,  manaEff: 9,  tier: 'cedh' },
+  'mox diamond':            { power: 9,  manaEff: 9,  tier: 'cedh' },
+  'mox opal':               { power: 8,  manaEff: 8,  tier: 'cedh' },
+  'lotus petal':            { power: 8,  manaEff: 9,  tier: 'cedh' },
+  'jeweled lotus':          { power: 9,  manaEff: 9,  tier: 'cedh' },
+  'arcane signet':          { power: 7,  manaEff: 8,  tier: 'casual' },
+  'mind stone':             { power: 5,  manaEff: 6,  tier: 'casual' },
+  'demonic tutor':          { power: 9,  manaEff: 9,  tier: 'high-power' },
+  'vampiric tutor':         { power: 9,  manaEff: 9,  tier: 'high-power' },
+  'mystical tutor':         { power: 8,  manaEff: 8,  tier: 'high-power' },
+  'worldly tutor':          { power: 8,  manaEff: 8,  tier: 'high-power' },
+  'enlightened tutor':      { power: 8,  manaEff: 8,  tier: 'high-power' },
+  'imperial seal':          { power: 8,  manaEff: 8,  tier: 'cedh' },
+  'gamble':                 { power: 7,  manaEff: 8,  tier: 'high-power' },
+  'rhystic study':          { power: 9,  manaEff: 7,  tier: 'high-power' },
+  'mystic remora':          { power: 8,  manaEff: 8,  tier: 'high-power' },
+  'smothering tithe':       { power: 9,  manaEff: 7,  tier: 'high-power' },
+  'esper sentinel':         { power: 8,  manaEff: 8,  tier: 'high-power' },
+  'cyclonic rift':          { power: 9,  manaEff: 7,  tier: 'high-power' },
+  'fierce guardianship':    { power: 9,  manaEff: 8,  tier: 'cedh' },
+  'deadly rollick':         { power: 9,  manaEff: 8,  tier: 'cedh' },
+  'force of will':          { power: 9,  manaEff: 8,  tier: 'cedh' },
+  'force of negation':      { power: 9,  manaEff: 8,  tier: 'cedh' },
+  'swan song':              { power: 8,  manaEff: 8,  tier: 'high-power' },
+  'swords to plowshares':   { power: 8,  manaEff: 9,  tier: 'casual' },
+  'path to exile':          { power: 8,  manaEff: 9,  tier: 'casual' },
+  'assassin\'s trophy':     { power: 8,  manaEff: 8,  tier: 'high-power' },
+  'toxic deluge':           { power: 9,  manaEff: 8,  tier: 'high-power' },
+  'damnation':              { power: 8,  manaEff: 7,  tier: 'high-power' },
+  'teferi\'s protection':   { power: 9,  manaEff: 7,  tier: 'high-power' },
+  'deflecting swat':        { power: 9,  manaEff: 8,  tier: 'cedh' },
+  'flawless maneuver':      { power: 8,  manaEff: 8,  tier: 'cedh' },
+  'necropotence':           { power: 9,  manaEff: 8,  tier: 'cedh' },
+  'ad nauseam':             { power: 9,  manaEff: 8,  tier: 'cedh' },
+  'underworld breach':      { power: 9,  manaEff: 8,  tier: 'cedh' },
+  'thassa\'s oracle':       { power: 9,  manaEff: 9,  tier: 'cedh' },
+  'demonic consultation':   { power: 9,  manaEff: 9,  tier: 'cedh' },
+  'tainted pact':           { power: 9,  manaEff: 7,  tier: 'cedh' },
+  'dockside extortionist':  { power: 9,  manaEff: 8,  tier: 'high-power' },
+  'craterhoof behemoth':    { power: 9,  manaEff: 6,  tier: 'high-power' },
+  'the one ring':           { power: 9, manaEff: 7, tier: 'high-power' },
+  'beast within':           { power: 7, manaEff: 7, tier: 'casual' },
+  'cultivate':              { power: 8, manaEff: 8, tier: 'casual' },
+  'kodama\'s reach':        { power: 8, manaEff: 8, tier: 'casual' },
+  'three visits':           { power: 8, manaEff: 9, tier: 'casual' },
+  'farseek':                { power: 8, manaEff: 8, tier: 'casual' },
 };
+
+export function applyTierGating(
+  cardName: string,
+  composite: number,
+  powerLevel: PowerLevel,
+): number {
+  const staple = KNOWN_STAPLES[cardName.toLowerCase()];
+  if (!staple?.tier) return composite;
+  const tier = staple.tier;
+  const tierRank: Record<string, number> = { casual: 0, 'high-power': 1, cedh: 2 };
+  const selectedRank = tierRank[powerLevel === 'competitive' ? 'cedh' : powerLevel === '75%' ? 'high-power' : 'casual'];
+  if (tierRank[tier] > selectedRank) return Math.round(composite * 0.3);
+  if (tierRank[tier] < selectedRank) return Math.max(1, composite - 5);
+  return composite;
+}
 
 export function scoreCard(
   scryfallData: ScryfallCard,

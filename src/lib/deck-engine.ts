@@ -1,6 +1,7 @@
 import type { CollectionEntry, CommanderAnalysis, DeckBlueprint, DeckProfile, DeckRole } from './types';
 import { getOracleText, getTypeLine, getManaCost, getColorIdentity, getDeckCardKey, isLandCard, isBasicLandCard, canRunMultipleCopies } from './card-utils';
 import { detectCardRoles, cardMatchesTheme } from './card-roles';
+import { applyTierGating } from './scoring';
 import { getDeckBlueprint } from './deck-blueprint';
 import type { PowerLevel } from './deck-blueprint';
 import { analyzeCommander } from './commander-analyzer';
@@ -494,6 +495,7 @@ function computeSynergyDensity(
 function proposeArchetypes(
   cmdAnalysis: CommanderAnalysis,
   valid: CollectionEntry[],
+  powerLevel: PowerLevel,
 ): { selected: ClusterArchetype[]; diagnostics: ArchetypeDiagnostic[] } {
   const diagnostics: ArchetypeDiagnostic[] = [];
   const selected: ClusterArchetype[] = [];
@@ -682,7 +684,13 @@ function proposeArchetypes(
     // Score
     const categoryWeight: Record<string, number> = { wincon: 1.5, engine: 1.2, synergy: 1.0, enabler: 0.8 };
     const signalStrength = entry.always_proposed ? 1.5 : Math.max(1, entry.commander_signals.filter(s => s.test(cmdOracle) || s.test(cmdTypeLine)).length);
-    const score = qualifying.length * signalStrength * (categoryWeight[entry.category] || 1.0);
+    const pwl = powerLevel;
+    const winconMultiplier =
+      entry.key === 'COMBAT_FINISHERS_GO_WIDE' ? (pwl === 'casual' ? 1.3 : pwl === 'competitive' ? 0.7 : 1.0) :
+      entry.key === 'COMMANDER_DAMAGE_VOLTRON' ? (pwl === 'casual' ? 1.2 : pwl === 'competitive' ? 0.5 : 1.0) :
+      entry.key === 'COMBO_TWO_CARD_INFINITE' ? (pwl === 'casual' ? 0.4 : pwl === 'competitive' ? 1.8 : 0.8) :
+      1.0;
+    const score = qualifying.length * signalStrength * (categoryWeight[entry.category] || 1.0) * winconMultiplier;
 
     const archetype: ClusterArchetype = {
       key: entry.key,
@@ -1376,7 +1384,7 @@ export function buildOptimalDeck(
 
   // === CLUSTER-FIRST BUILDING ===
   // Phases 0-1: Propose archetypes from library + run sanity check
-  const { selected: selectedArchetypes, diagnostics } = proposeArchetypes(cmdAnalysis, valid);
+  const { selected: selectedArchetypes, diagnostics } = proposeArchetypes(cmdAnalysis, valid, powerLevel);
 
   // Phase 2: Allocate non-land slots across selected archetypes
   const nonLandTarget = 99 - blueprint.lands;
@@ -1406,6 +1414,19 @@ export function buildOptimalDeck(
     }
   }
   const { scores: densityScores, components: densityComponents } = computeSynergyDensity(selectedArchetypes, valid, getRoles, globalCardToSubRoleKeys);
+
+  const getTierComposite = (entry: CollectionEntry): number =>
+    applyTierGating(entry.scryfallData.name, entry.scores.composite, powerLevel);
+
+  const getFreeSpellBonus = (entry: CollectionEntry, clusterKey: string): number => {
+    if (clusterKey !== 'INTERACTION_REMOVAL' && clusterKey !== 'PROTECTION_COMMANDER') return 0;
+    const oracle = getOracleText(entry.scryfallData).toLowerCase().replace(/\n/g, ' ');
+    if (/(?:without paying its mana cost|you may cast this spell without paying its mana cost)/i.test(oracle)) {
+      if (powerLevel === 'competitive') return 15;
+      if (powerLevel === '75%') return 8;
+    }
+    return 0;
+  };
 
   // Phase 3: Fill each cluster with its best cards
   const clusterResults: ClusterResult[] = [];
@@ -1459,7 +1480,7 @@ export function buildOptimalDeck(
             if (current < c.minimum) bonus = Math.max(bonus, 12);
             else if (current < c.ideal) bonus = Math.max(bonus, 6);
           }
-          const score = entry.scores.composite + bonus + (densityScores.get(card.id) || 0);
+          const score = getTierComposite(entry) + bonus + (densityScores.get(card.id) || 0) + getFreeSpellBonus(entry, a.key);
           if (score > bestScore) { bestEntry = entry; bestScore = score; }
         }
         if (!bestEntry) break;
@@ -1510,7 +1531,10 @@ export function buildOptimalDeck(
       });
     } else {
       // Original fill for clusters without sub-roles
-    const ranked = [...qualifying].sort((a, b) => (b.scores.composite + (densityScores.get(b.scryfallData.id) || 0)) - (a.scores.composite + (densityScores.get(a.scryfallData.id) || 0)));
+    const ranked = [...qualifying].sort((a, b) =>
+      (getTierComposite(b) + (densityScores.get(b.scryfallData.id) || 0) + getFreeSpellBonus(b, a.key)) -
+      (getTierComposite(a) + (densityScores.get(a.scryfallData.id) || 0) + getFreeSpellBonus(a, a.key)),
+    );
       for (const entry of ranked) {
         if (addedEntries.length >= alloc) break;
         const card = entry.scryfallData;
@@ -1544,16 +1568,19 @@ export function buildOptimalDeck(
 
   // Phase 5: Fill remaining slots from enabler clusters + role-based fill
   const enablerPatterns = selectedArchetypes.filter(a => a.category === 'enabler');
-  for (const a of enablerPatterns) {
-    const alloc = clusterAlloc.get(a) || 0;
+  for (const arch of enablerPatterns) {
+    const alloc = clusterAlloc.get(arch) || 0;
     if (alloc <= 0) continue;
-    const qualifying = valid.filter(e => !isLandCard(e.scryfallData) && a.matches(e, getRoles) && (!a.exclusions || !a.exclusions(e)));
-    const ranked = [...qualifying].sort((a, b) => b.scores.composite - a.scores.composite);
+    const qualifying = valid.filter(e => !isLandCard(e.scryfallData) && arch.matches(e, getRoles) && (!arch.exclusions || !arch.exclusions(e)));
+    const ranked = [...qualifying].sort((x, y) =>
+      (getTierComposite(y) + getFreeSpellBonus(y, arch.key)) -
+      (getTierComposite(x) + getFreeSpellBonus(x, arch.key)),
+    );
     for (const entry of ranked) {
       if (cardIds.length >= nonLandTarget) break;
       const key = getDeckCardKey(entry.scryfallData);
       if (selectedKeys.has(key) || cardIds.includes(entry.scryfallData.id)) continue;
-      addEntry(entry, a.display_name, `enabler: ${a.display_name}`);
+      addEntry(entry, arch.display_name, `enabler: ${arch.display_name}`);
     }
   }
 
@@ -1576,7 +1603,9 @@ export function buildOptimalDeck(
       const scored = scoreCandidateForDeck(entry, profile, blueprint, cmdAnalysis, getRoles);
       if (scored) {
         const adjustedScore = scored.score + (densityScores.get(entry.scryfallData.id) || 0);
-        if (!best || adjustedScore > best.score) best = { entry, score: adjustedScore, role: scored.role, reason: scored.reason };
+        // Tier-gate: heavy counterweights for cards that are too strong or too weak for the power level
+        const tierScore = applyTierGating(entry.scryfallData.name, adjustedScore, powerLevel);
+        if (!best || tierScore > best.score) best = { entry, score: tierScore, role: scored.role, reason: scored.reason };
       }
     }
     if (!best) break;

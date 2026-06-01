@@ -16,9 +16,9 @@ export function getDeckBlueprint(cmdAnalysis: CommanderAnalysis, powerLevel: Pow
     interaction = 10;
     tutors = 6;
     protection = 5;
-    curveLow = 0.38;
+    curveLow = 0.42;
     curveMid = 0.30;
-    curveHigh = 0.20;
+    curveHigh = 0.16;
   } else if (powerLevel === '75%') {
     lands = 34;
     ramp = 10;
@@ -26,9 +26,9 @@ export function getDeckBlueprint(cmdAnalysis: CommanderAnalysis, powerLevel: Pow
     interaction = 8;
     tutors = 3;
     protection = 4;
-    curveLow = 0.30;
-    curveMid = 0.35;
-    curveHigh = 0.23;
+    curveLow = 0.34;
+    curveMid = 0.34;
+    curveHigh = 0.20;
   } else {
     lands = 37;
     ramp = 9;

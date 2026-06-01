@@ -467,6 +467,16 @@ export default function DeckBuilderView() {
                 {level === 'competitive' ? 'cEDH' : level === '75%' ? 'High Power' : 'Casual'}
               </button>
             ))}
+            <span className="relative group cursor-help px-2 py-1.5 inline-flex items-center">
+              <HelpCircle className="w-3 h-3 text-text-muted/40 group-hover:text-text-muted" />
+              <span className="absolute hidden group-hover:block bottom-full left-1/2 -translate-x-1/2 mb-2 bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-xs w-72 z-10 shadow-lg pointer-events-none leading-relaxed">
+                <strong>Casual:</strong> Slower games, big creatures, combat-focused wins. Wins around turn 10.
+                <br /><br />
+                <strong>High Power:</strong> Efficient mana, strong card draw and tutors, faster wins around turn 6-8.
+                <br /><br />
+                <strong>cEDH:</strong> Optimized to win turns 3-5 via compact 2-card combos. Heavy tutoring and free interaction. Fast mana and free spells preferred.
+              </span>
+            </span>
           </div>
           {deckEntries.length > 0 && (
             <>
