@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, Crown, Wand2, Check, ChevronRight } from 'lucide-react';
+import { Upload, Crown, Wand2, Check, ChevronRight, Search, X } from 'lucide-react';
 import { parseManaboxCsv } from '../../lib/csv-parser';
 import { fetchCardById } from '../../lib/scryfall';
 import { cacheCard, getCachedCard, setInMemoryCache, getFromMemoryCache } from '../../lib/card-cache';
@@ -39,6 +39,7 @@ export default function WelcomeView() {
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState('');
   const [showCommanders, setShowCommanders] = useState(false);
+  const [cmdrSearch, setCmdrSearch] = useState('');
   const abortRef = useRef<AbortController | null>(null);
 
   const hasCollection = collection.length > 0;
@@ -48,6 +49,13 @@ export default function WelcomeView() {
   const legendaries = collection
     .filter((e) => e.scryfallData && isLegendaryCreature(e.scryfallData))
     .sort((a, b) => (a.scryfallData.name || '').localeCompare(b.scryfallData.name || ''));
+
+  const filteredLegends = cmdrSearch.trim()
+    ? legendaries.filter((e) =>
+        (e.scryfallData.name || '').toLowerCase().includes(cmdrSearch.toLowerCase()) ||
+        (e.scryfallData.type_line || '').toLowerCase().includes(cmdrSearch.toLowerCase()),
+      )
+    : legendaries;
 
   const handleImport = useCallback(async (file: File) => {
     const controller = new AbortController();
@@ -245,35 +253,61 @@ export default function WelcomeView() {
                 <ChevronRight size={16} />
               </button>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[320px] overflow-y-auto">
-                {legendaries.map((entry) => {
-                  const card = entry.scryfallData;
-                  const ci = getColorIdentity(card);
-                  const img = getCardImageUrl(card, 'small');
-                  return (
+              <div className="space-y-3">
+                <div className="relative">
+                  <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+                  <input
+                    type="text"
+                    placeholder="Search commanders..."
+                    value={cmdrSearch}
+                    onChange={(e) => setCmdrSearch(e.target.value)}
+                    className="w-full bg-white/[0.04] border border-border rounded-lg text-text pl-9 pr-3 py-2 text-sm focus:outline-none focus:border-primary placeholder:text-text-muted"
+                  />
+                  {cmdrSearch && (
                     <button
-                      key={card.id}
-                      onClick={() => { setCommander(card); setShowCommanders(false); }}
-                      className="flex items-center gap-3 p-3 rounded-xl border border-border hover:border-primary hover:bg-primary/[0.03] hover:shadow-[0_0_12px_rgba(255,170,0,0.1)] hover:scale-[1.02] transition-all duration-200 text-left"
+                      onClick={() => setCmdrSearch('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-text-muted hover:text-text"
                     >
-                      {img ? (
-                        <img src={img} alt={card.name} className="w-10 h-14 rounded object-cover" loading="lazy"
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                      ) : (
-                        <div className="w-10 h-14 rounded bg-surface-secondary flex items-center justify-center text-text-muted text-xs">?</div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-text truncate">{card.name}</p>
-                        <div className="flex gap-0.5 mt-1">
-                          {(ci.length ? ci : ['C']).map((c: string) => (
-                            <span key={c} className="w-3.5 h-3.5 rounded-full border border-black/20 flex items-center justify-center text-[7px] font-bold"
-                              style={{ background: manaColor(c), color: ['W', 'C'].includes(c) ? '#333' : '#fff' }}>{c}</span>
-                          ))}
-                        </div>
-                      </div>
+                      <X size={14} />
                     </button>
-                  );
-                })}
+                  )}
+                </div>
+                {filteredLegends.length === 0 ? (
+                  <div className="text-center py-6 text-text-muted text-sm">
+                    No legendary creatures match "{cmdrSearch}"
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[320px] overflow-y-auto">
+                    {filteredLegends.map((entry) => {
+                      const card = entry.scryfallData;
+                      const ci = getColorIdentity(card);
+                      const img = getCardImageUrl(card, 'small');
+                      return (
+                        <button
+                          key={card.id}
+                          onClick={() => { setCommander(card); setShowCommanders(false); setCmdrSearch(''); }}
+                          className="flex items-center gap-3 p-3 rounded-xl border border-border hover:border-primary hover:bg-primary/[0.03] hover:shadow-[0_0_12px_rgba(255,170,0,0.1)] hover:scale-[1.02] transition-all duration-200 text-left"
+                        >
+                          {img ? (
+                            <img src={img} alt={card.name} className="w-10 h-14 rounded object-cover" loading="lazy"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          ) : (
+                            <div className="w-10 h-14 rounded bg-surface-secondary flex items-center justify-center text-text-muted text-xs">?</div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-text truncate">{card.name}</p>
+                            <div className="flex gap-0.5 mt-1">
+                              {(ci.length ? ci : ['C']).map((c: string) => (
+                                <span key={c} className="w-3.5 h-3.5 rounded-full border border-black/20 flex items-center justify-center text-[7px] font-bold"
+                                  style={{ background: manaColor(c), color: ['W', 'C'].includes(c) ? '#333' : '#fff' }}>{c}</span>
+                              ))}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </>

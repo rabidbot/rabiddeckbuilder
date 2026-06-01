@@ -26,11 +26,12 @@ const STEPS = [
 
 export default function OnboardingModal({ onDismiss }: Props) {
   const [dontShow, setDontShow] = useState(false);
-  const { setOnboardingComplete, setShowHelp } = useUIStore();
+  const { setOnboardingComplete, setOnboardingDismissed, setShowHelp } = useUIStore();
 
   const handleDismiss = () => {
     if (dontShow) setOnboardingComplete(true);
     setShowHelp(false);
+    setOnboardingDismissed(true);
     onDismiss();
   };
 

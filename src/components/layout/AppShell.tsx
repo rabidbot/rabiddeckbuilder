@@ -7,8 +7,8 @@ import { useUIStore } from '../../stores/uiStore';
 
 export default function AppShell() {
   const { toasts, removeToast } = useToastStore();
-  const { onboardingComplete, showHelp, setShowHelp } = useUIStore();
-  const showOnboarding = !onboardingComplete || showHelp;
+  const { onboardingComplete, onboardingDismissed, showHelp, setShowHelp } = useUIStore();
+  const showOnboarding = (!onboardingComplete && !onboardingDismissed) || showHelp;
 
   return (
     <div className="flex flex-col min-h-screen">
